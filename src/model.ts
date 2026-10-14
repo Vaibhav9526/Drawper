@@ -71,3 +71,31 @@ export function serviceEdges(doc: DprDocument): { from: ServiceElement; to: Serv
   }
   return edges;
 }
+
+export function tableEdges(doc: Pick<DprDocument, 'elements'>): { from: TableElement; to: TableElement }[] {
+  const els = doc.elements.filter((e) => !e.isDeleted);
+  const found = els.filter((e) => kindOf(e) === 'table');
+  const byId = new Map(found.map((e) => [e.id, e]));
+  const toTable = (e: any): TableElement => ({ id: e.id, name: e.customData.name, columns: e.customData.columns ?? [] });
+  const ownerOf = (id?: string) => {
+    const el = els.find((e) => e.id === id);
+    return byId.get(el && kindOf(el) === 'part' ? el.customData.of : id ?? '');
+  };
+  const at = (px: number, py: number) => found.find((s) => px >= s.x && px <= s.x + s.width && py >= s.y && py <= s.y + s.height);
+  const edges: { from: TableElement; to: TableElement }[] = [];
+  for (const e of els) {
+    if (e.type !== 'arrow' || !e.points || e.points.length < 2) continue;
+    const a = e.points[0];
+    const b = e.points[e.points.length - 1];
+    const from = ownerOf(e.startBinding?.elementId) ?? at(e.x + a[0], e.y + a[1]);
+    const to = ownerOf(e.endBinding?.elementId) ?? at(e.x + b[0], e.y + b[1]);
+    if (from && to && from.id !== to.id) edges.push({ from: toTable(from), to: toTable(to) });
+  }
+  return edges;
+}
+
+export function docFromTables(list: { name: string; columns: Column[] }[]): DprDocument {
+  const doc = emptyDocument();
+  doc.elements = list.map((t, i) => ({ id: `t${i}`, type: 'rectangle', x: 0, y: 0, width: 0, height: 0, customData: { drawper: 'table', name: t.name, columns: t.columns } }));
+  return doc;
+}

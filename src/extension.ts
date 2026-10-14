@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { generate, Target } from './codegen';
-import { emptyDocument, parseDocument } from './model';
+import { DprDocument, docFromTables, emptyDocument, parseDocument } from './model';
 import { ParsedSchema, parseSchema } from './schemaParsers';
 
 const VIEW_TYPE = 'drawper.editor';
@@ -20,6 +20,17 @@ function webviewHtml(webview: vscode.Webview, ctx: vscode.ExtensionContext, mode
 <script type="module" nonce="${nonce}" src="${uri('index.js')}"></script></body></html>`;
 }
 
+const exists = (uri: vscode.Uri) => Promise.resolve(vscode.workspace.fs.stat(uri)).then(() => true, () => false);
+
+async function emit(doc: DprDocument, target: Target, outDir: string) {
+  const files = generate(doc, target);
+  if (!files.some((f) => f.content.trim())) return void vscode.window.showWarningMessage('Drawper: nothing to generate. Add tables or services first.');
+  const baseUri = vscode.Uri.file(outDir);
+  await writeFiles(baseUri, files);
+  await vscode.window.showTextDocument(vscode.Uri.joinPath(baseUri, ...files[0].path.split('/')), { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false, preview: false });
+  vscode.window.showInformationMessage(`Drawper: wrote ${files.length} file(s) to ${path.basename(outDir)}/`);
+}
+
 async function writeFiles(baseUri: vscode.Uri, files: { path: string; content: string }[]) {
   for (const f of files) {
     const uri = vscode.Uri.joinPath(baseUri, ...f.path.split('/'));
@@ -36,6 +47,7 @@ async function handleSvgMessages(webview: vscode.Webview, msg: any): Promise<boo
   }
   if (msg.type === 'readSvg') {
     const uri = vscode.Uri.parse(msg.uri);
+    if (!uri.path.toLowerCase().endsWith('.svg') || !vscode.workspace.getWorkspaceFolder(uri)) return true;
     const svg = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
     webview.postMessage({ type: 'svgFile', name: path.basename(uri.fsPath, '.svg'), svg });
     return true;
@@ -101,13 +113,7 @@ class DrawperEditor implements vscode.CustomTextEditorProvider {
   }
 
   private async generate(document: vscode.TextDocument, target: Target) {
-    const files = generate(parseDocument(document.getText()), target);
-    if (!files.some((f) => f.content.trim())) return void vscode.window.showWarningMessage('Drawper: nothing to generate. Add tables or services first.');
-    const base = path.join(path.dirname(document.uri.fsPath), path.basename(document.uri.fsPath, '.dpr') + '-generated');
-    const baseUri = vscode.Uri.file(base);
-    await writeFiles(baseUri, files);
-    await vscode.window.showTextDocument(vscode.Uri.joinPath(baseUri, ...files[0].path.split('/')), { viewColumn: vscode.ViewColumn.Beside, preview: false });
-    vscode.window.showInformationMessage(`Drawper: wrote ${files.length} file(s) to ${path.basename(base)}/`);
+    await emit(parseDocument(document.getText()), target, path.join(path.dirname(document.uri.fsPath), path.basename(document.uri.fsPath, '.dpr') + '-generated'));
   }
 }
 
@@ -129,12 +135,15 @@ class SchemaLenses implements vscode.CodeLensProvider {
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     if (document.uri.scheme !== 'file' || document.fileName.endsWith('.dpr')) return [];
     const { tables, dialect } = schemaOf(document);
-    return tables.map((t, i) => {
+    return tables.flatMap((t, i) => {
       const line = Math.min(t.line, document.lineCount - 1);
+      const range = new vscode.Range(line, 0, line, 0);
       const title = i === 0 || tables.length === 1
         ? `$(graph) View ${tables.length} table${tables.length > 1 ? 's' : ''} in Drawper (${dialect.join(' + ')})`
         : `$(graph) View ${t.name} in Drawper`;
-      return new vscode.CodeLens(new vscode.Range(line, 0, line, 0), { title, command: 'drawper.viewSchema', arguments: [document.uri, t.name] });
+      const lenses = [new vscode.CodeLens(range, { title, command: 'drawper.viewSchema', arguments: [document.uri, t.name] })];
+      if (i === 0) lenses.push(new vscode.CodeLens(range, { title: '$(arrow-swap) Convert to Drizzle / Prisma / SQL…', command: 'drawper.convertSchema', arguments: [document.uri] }));
+      return lenses;
     });
   }
 }
@@ -176,13 +185,35 @@ async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, foc
       return;
     }
     if (msg.type === 'saveAs') {
-      const out = vscode.Uri.file(path.join(path.dirname(uri.fsPath), `${path.basename(uri.fsPath, path.extname(uri.fsPath))}.schema.dpr`));
-      await vscode.workspace.fs.writeFile(out, Buffer.from(JSON.stringify(msg.doc, null, 2), 'utf8'));
+      const stem = path.basename(uri.fsPath, path.extname(uri.fsPath));
+      let out = vscode.Uri.file(path.join(path.dirname(uri.fsPath), `${stem}.schema.dpr`));
+      for (let n = 2; await exists(out); n++) out = vscode.Uri.file(path.join(path.dirname(uri.fsPath), `${stem}.schema-${n}.dpr`));
+      await vscode.workspace.fs.writeFile(out,Buffer.from(JSON.stringify(msg.doc, null, 2), 'utf8'));
       await vscode.commands.executeCommand('vscode.openWith', out, VIEW_TYPE);
       return;
     }
     await handleSvgMessages(panel.webview, msg);
   });
+}
+
+const CONVERT_TARGETS: { label: string; description: string; target: Target }[] = [
+  { label: '$(symbol-class) Drizzle', description: 'schema.ts with tables and relations()', target: 'drizzle' },
+  { label: '$(symbol-interface) Prisma', description: 'schema.prisma with relations', target: 'prisma' },
+  { label: '$(database) SQL', description: 'schema.sql with CREATE TABLE and foreign keys', target: 'sql' },
+  { label: '$(symbol-namespace) TypeScript types', description: 'types.ts interfaces', target: 'typescript' },
+  { label: '$(references) Relation queries', description: 'SQL joins plus Drizzle and Prisma relation queries', target: 'queries' },
+];
+
+async function convertSchema(target?: vscode.Uri) {
+  const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+  if (!uri) return void vscode.window.showWarningMessage('Drawper: open a file that defines a schema.');
+  const document = await vscode.workspace.openTextDocument(uri);
+  const { tables, dialect } = schemaOf(document);
+  if (!tables.length) return void vscode.window.showWarningMessage('Drawper: no tables found in this file.');
+  const pick = await vscode.window.showQuickPick(CONVERT_TARGETS, { placeHolder: `Convert ${tables.length} table${tables.length > 1 ? 's' : ''} from ${dialect.join(' + ')} to…` });
+  if (!pick) return;
+  const stem = path.basename(uri.fsPath, path.extname(uri.fsPath));
+  await emit(docFromTables(tables), pick.target, path.join(path.dirname(uri.fsPath), `${stem}-converted`));
 }
 
 async function newDrawing() {
@@ -219,6 +250,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.workspace.onDidCloseTextDocument((d) => schemaCache.delete(d.uri.toString())),
     vscode.commands.registerCommand('drawper.open', openDrawing),
     vscode.commands.registerCommand('drawper.new', newDrawing),
+    vscode.commands.registerCommand('drawper.convertSchema', (uri?: vscode.Uri) => convertSchema(uri)),
     vscode.commands.registerCommand('drawper.viewSchema', (uri?: vscode.Uri, focus?: string) => viewSchema(ctx, uri, focus)),
   );
 }

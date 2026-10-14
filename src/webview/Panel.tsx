@@ -5,6 +5,8 @@ import { CATEGORIES, IconFile, iconFile, iconSvg, importedSvgFile, toDataUrl } f
 import { Column, KINDS, ServiceData, ShapeData, TYPES, TableData, createShape, kindIconFile, partsOf, updateShape } from './shapes';
 import { freeSpot, insertImage, insertSvgMarkup } from './svgInsert';
 import { vscode } from './vscode';
+import { tableEdges } from '../model';
+import { fkColumnFor } from '../relations';
 
 type Props = { api: any; elements: readonly any[]; selection: string; flush: () => void };
 type Tab = 'arch' | 'schema' | 'icons';
@@ -18,6 +20,23 @@ const iconUrl = (name: string, color: string) => toDataUrl(iconSvg(name, color))
 
 function Ico({ name, color = 'currentColor', size = 16 }: { name: string; color?: string; size?: number }) {
   return <img className="ico" width={size} height={size} src={iconUrl(name, color)} alt="" />;
+}
+
+/** Keeps foreign keys in other tables pointing at a table or column that was just renamed. */
+function syncRefs(els: any[], before: TableData, after: TableData): any[] {
+  const renames = new Map<string, string>();
+  before.columns.forEach((c, i) => {
+    const col = after.columns.length === before.columns.length ? after.columns[i].name : c.name;
+    if (before.name !== after.name || c.name !== col) renames.set(`${before.name}.${c.name}`, `${after.name}.${col}`);
+  });
+  if (!renames.size) return els;
+  let out = els;
+  for (const rect of live(els, 'table')) {
+    const data = rect.customData as TableData;
+    if (!data.columns.some((c) => c.ref && renames.has(c.ref))) continue;
+    out = updateShape(out, rect.id, { ...data, columns: data.columns.map((c) => (c.ref && renames.has(c.ref) ? { ...c, ref: renames.get(c.ref) } : c)) });
+  }
+  return out;
 }
 
 export function Panel({ api, elements, selection, flush }: Props) {
@@ -51,8 +70,32 @@ export function Panel({ api, elements, selection, flush }: Props) {
   const patch = (next: ShapeData, capture = TYPING) => {
     if (!current) return;
     if (next.drawper === 'service') api.addFiles([kindIconFile(next.kind)]);
-    api.updateScene({ elements: updateShape(api.getSceneElementsIncludingDeleted(), current.id, next), ...capture });
+    let els = updateShape(api.getSceneElementsIncludingDeleted(), current.id, next);
+    if (next.drawper === 'table' && current.customData.drawper === 'table') els = syncRefs(els, current.customData, next);
+    api.updateScene({ elements: els, ...capture });
   };
+
+  // An arrow between two tables is a relation: add the foreign-key column on the table the arrow starts from.
+  const missing = tableEdges({ elements: [...elements] }).filter(({ from, to }) => !from.columns.some((c) => c.ref?.split('.')[0] === to.name));
+  const missingKey = missing.map(({ from, to }) => `${from.id}>${to.id}`).join();
+  useEffect(() => {
+    if (!missingKey) return;
+    const pending = tableEdges({ elements: [...api.getSceneElementsIncludingDeleted()] });
+    let els: any[] = api.getSceneElementsIncludingDeleted();
+    const grown = new Map<string, any[]>();
+    for (const { from, to } of pending) {
+      const cols = grown.get(from.id) ?? [...from.columns];
+      if (cols.some((c) => c.ref?.split('.')[0] === to.name)) continue;
+      cols.push(fkColumnFor({ ...from, columns: cols }, to));
+      grown.set(from.id, cols);
+    }
+    if (!grown.size) return;
+    for (const [id, columns] of grown) {
+      const rect = els.find((e) => e.id === id);
+      els = updateShape(els, id, { ...(rect.customData as TableData), columns });
+    }
+    api.updateScene({ elements: els, ...NOW });
+  }, [missingKey]);
 
   const remove = (rect: any) => {
     const gone = new Set([rect.id, ...partsOf(api.getSceneElements(), rect.id).map((p: any) => p.id)]);
@@ -161,6 +204,7 @@ export function Panel({ api, elements, selection, flush }: Props) {
               </div>
             ))}
             {!tables.length && <p className="empty">No tables yet. Create one here, or open a file that defines a schema and use the “View in Drawper” lens above it.</p>}
+            {tables.length > 1 && <p className="hint">Draw an arrow from one table to another (Arrow tool, A) to create a relation. The foreign key column is added to the table the arrow starts from.</p>}
             {data?.drawper === 'table' && <TableForm data={data} tables={tables.map((t) => t.customData as TableData)} patch={patch} />}
             <div className="card">
               <h4>Generate code</h4>
@@ -169,6 +213,7 @@ export function Panel({ api, elements, selection, flush }: Props) {
                 <button className="primary" onClick={() => generate('prisma')}>Prisma</button>
                 <button className="primary" onClick={() => generate('drizzle')}>Drizzle</button>
                 <button className="primary" onClick={() => generate('typescript')}>TS types</button>
+                <button className="primary" onClick={() => generate('queries')} title="SQL joins and Drizzle / Prisma relation queries">Relation queries</button>
               </div>
             </div>
           </>

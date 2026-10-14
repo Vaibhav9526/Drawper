@@ -29,6 +29,11 @@
         "command": "drawper.viewSchema",
         "title": "Drawper: View Schema in This File",
         "icon": "media/brand/logo.svg"
+      },
+      {
+        "command": "drawper.convertSchema",
+        "title": "Drawper: Convert Schema To…",
+        "icon": "media/brand/logo.svg"
       }
     ],
     "customEditors": [
@@ -69,12 +74,28 @@
         {
           "command": "drawper.new",
           "group": "navigation"
+        },
+        {
+          "command": "drawper.viewSchema",
+          "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
+          "group": "navigation@9"
+        },
+        {
+          "command": "drawper.convertSchema",
+          "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
+          "group": "navigation@10"
         }
       ],
       "editor/context": [
         {
           "command": "drawper.viewSchema",
+          "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
           "group": "navigation@9"
+        },
+        {
+          "command": "drawper.convertSchema",
+          "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
+          "group": "navigation@10"
         }
       ]
     }
@@ -85,7 +106,8 @@
     "watch": "tsc -watch -p ./",
     "watch:webview": "node scripts/build-webview.mjs --watch",
     "vscode:prepublish": "npm run compile",
-    "package": "npx @vscode/vsce package"
+    "package": "npx @vscode/vsce package",
+    "test": "npm run compile && node scripts/test-parsers.mjs && node scripts/test-codegen.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

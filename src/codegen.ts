@@ -1,6 +1,7 @@
-import { Column, ColumnType, DprDocument, ServiceElement, TableElement, serviceEdges, services, tables } from './model';
+import { Column, ColumnType, DprDocument, ServiceElement, TableElement, serviceEdges, services, tableEdges, tables } from './model';
+import { Relation, relationsOf, singular, withArrowRelations } from './relations';
 
-export type Target = 'sql' | 'prisma' | 'drizzle' | 'typescript' | 'compose';
+export type Target = 'sql' | 'prisma' | 'drizzle' | 'typescript' | 'queries' | 'compose';
 
 export interface GeneratedFile {
   path: string;
@@ -16,8 +17,8 @@ const SQL_TYPES: Record<ColumnType, string> = {
   timestamp: 'TIMESTAMP', date: 'DATE', uuid: 'UUID', json: 'JSONB', float: 'DOUBLE PRECISION',
 };
 const PRISMA_TYPES: Record<ColumnType, string> = {
-  int: 'Int', bigint: 'BigInt', text: 'String', varchar: 'String', boolean: 'Boolean',
-  timestamp: 'DateTime', date: 'DateTime', uuid: 'String', json: 'Json', float: 'Float',
+  int: 'Int', bigint: 'BigInt', text: 'String @db.Text', varchar: 'String @db.VarChar(255)', boolean: 'Boolean',
+  timestamp: 'DateTime', date: 'DateTime @db.Date', uuid: 'String @db.Uuid', json: 'Json', float: 'Float',
 };
 const TS_TYPES: Record<ColumnType, string> = {
   int: 'number', bigint: 'bigint', text: 'string', varchar: 'string', boolean: 'boolean',
@@ -38,7 +39,7 @@ function resolveRef(all: TableElement[], ref?: string): ResolvedRef | undefined 
 }
 
 export function generateSql(doc: DprDocument): string {
-  const all = tables(doc);
+  const all = withArrowRelations(tables(doc), tableEdges(doc));
   const create = all.map((t) => {
     const pks = t.columns.filter((c) => c.pk);
     const lines = t.columns.map((c) => {
@@ -61,31 +62,41 @@ export function generateSql(doc: DprDocument): string {
   return [...create, ...fks].join('\n\n') + '\n';
 }
 
+const withRelations = (doc: DprDocument) => withArrowRelations(tables(doc), tableEdges(doc));
+
+/** Relations that share a from/to pair need explicit names in Prisma and Drizzle. */
+function relationLabel(rels: Relation[], r: Relation): string | undefined {
+  const siblings = rels.filter((x) => x.from.id === r.from.id && x.to.id === r.to.id);
+  return siblings.length > 1 ? `${ident(r.from.name)}_${ident(r.column.name)}` : undefined;
+}
+
+const modelName = (t: TableElement) => pascal(singular(t.name));
+
 export function generatePrisma(doc: DprDocument): string {
-  const all = tables(doc);
-  const back = new Map<string, string[]>();
+  const all = withRelations(doc);
+  const rels = relationsOf(all);
   const models = all.map((t) => {
     const lines: string[] = [];
     for (const c of t.columns) {
       let attrs = '';
       if (c.pk) attrs += ' @id';
       if (c.unique) attrs += ' @unique';
-      lines.push(`  ${ident(c.name)} ${PRISMA_TYPES[c.type]}${c.nullable && !c.pk ? '?' : ''}${attrs}`);
-      const r = resolveRef(all, c.ref);
-      if (r) {
-        const field = ident(r.table.name).toLowerCase() + '_' + ident(c.name);
-        lines.push(`  ${field} ${pascal(r.table.name)}${c.nullable ? '?' : ''} @relation(fields: [${ident(c.name)}], references: [${ident(r.column.name)}])`);
-        const list = back.get(r.table.name) ?? [];
-        list.push(`  ${ident(t.name).toLowerCase()}_${ident(c.name)}s ${pascal(t.name)}[]`);
-        back.set(r.table.name, list);
-      }
+      const [base, ...native] = PRISMA_TYPES[c.type].split(' ');
+      lines.push(`  ${ident(c.name)} ${base}${c.nullable && !c.pk ? '?' : ''}${attrs}${native.length ? ' ' + native.join(' ') : ''}`);
     }
-    return { t, lines };
+    for (const r of rels.filter((x) => x.from.id === t.id)) {
+      const label = relationLabel(rels, r);
+      const name = label ? `"${label}", ` : '';
+      lines.push(`  ${r.one} ${modelName(r.to)}${r.column.nullable ? '?' : ''} @relation(${name}fields: [${ident(r.column.name)}], references: [${ident(r.target.name)}])`);
+    }
+    for (const r of rels.filter((x) => x.to.id === t.id)) {
+      const label = relationLabel(rels, r);
+      lines.push(`  ${r.many} ${modelName(r.from)}[]${label ? ` @relation("${label}")` : ''}`);
+    }
+    lines.push('', `  @@map("${ident(t.name)}")`);
+    return `model ${modelName(t)} {\n${lines.join('\n')}\n}`;
   });
-  const body = models
-    .map(({ t, lines }) => `model ${pascal(t.name)} {\n${[...lines, ...(back.get(t.name) ?? [])].join('\n')}\n}`)
-    .join('\n\n');
-  return `datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n${body}\n`;
+  return `datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n${models.join('\n\n')}\n`;
 }
 
 const DRIZZLE_TYPES: Record<ColumnType, { fn: string; arg?: string }> = {
@@ -93,10 +104,12 @@ const DRIZZLE_TYPES: Record<ColumnType, { fn: string; arg?: string }> = {
   boolean: { fn: 'boolean' }, timestamp: { fn: 'timestamp' }, date: { fn: 'date' }, uuid: { fn: 'uuid' }, json: { fn: 'jsonb' }, float: { fn: 'doublePrecision' },
 };
 
+const varName = (t: TableElement) => ident(t.name).replace(/^(\d)/, '_$1');
+
 export function generateDrizzle(doc: DprDocument): string {
-  const all = tables(doc);
+  const all = withRelations(doc);
+  const rels = relationsOf(all);
   const used = new Set<string>(['pgTable']);
-  const varOf = new Map(all.map((t) => [t.name, ident(t.name).replace(/^(\d)/, '_$1')]));
   const defs = all.map((t) => {
     const lines = t.columns.map((c) => {
       const d = DRIZZLE_TYPES[c.type];
@@ -106,16 +119,65 @@ export function generateDrizzle(doc: DprDocument): string {
       else if (!c.nullable) expr += '.notNull()';
       if (c.unique) expr += '.unique()';
       const r = resolveRef(all, c.ref);
-      if (r) expr += `.references(() => ${varOf.get(r.table.name)}.${ident(r.column.name)})`;
+      if (r) expr += `.references(() => ${varName(r.table)}.${ident(r.column.name)})`;
       return `  ${ident(c.name)}: ${expr},`;
     });
-    return `export const ${varOf.get(t.name)} = pgTable('${ident(t.name)}', {\n${lines.join('\n')}\n});`;
+    return `export const ${varName(t)} = pgTable('${ident(t.name)}', {\n${lines.join('\n')}\n});`;
   });
-  return `import { ${[...used].sort().join(', ')} } from 'drizzle-orm/pg-core';\n\n${defs.join('\n\n')}\n`;
+  const relDefs = all.flatMap((t) => {
+    const out = rels.filter((r) => r.from.id === t.id);
+    const inn = rels.filter((r) => r.to.id === t.id);
+    if (!out.length && !inn.length) return [];
+    const parts = [
+      ...out.map((r) => {
+        const label = relationLabel(rels, r);
+        const extra = label ? `, relationName: '${label}'` : '';
+        return `  ${r.one}: one(${varName(r.to)}, { fields: [${varName(t)}.${ident(r.column.name)}], references: [${varName(r.to)}.${ident(r.target.name)}]${extra} }),`;
+      }),
+      ...inn.map((r) => {
+        const label = relationLabel(rels, r);
+        return `  ${r.many}: many(${varName(r.from)}${label ? `, { relationName: '${label}' }` : ''}),`;
+      }),
+    ];
+    const helpers = [out.length ? 'one' : '', inn.length ? 'many' : ''].filter(Boolean).join(', ');
+    return [`export const ${varName(t)}Relations = relations(${varName(t)}, ({ ${helpers} }) => ({\n${parts.join('\n')}\n}));`];
+  });
+  const head = [`import { ${[...used].sort().join(', ')} } from 'drizzle-orm/pg-core';`];
+  if (relDefs.length) head.push("import { relations } from 'drizzle-orm';");
+  return `${head.join('\n')}\n\n${[...defs, ...relDefs].join('\n\n')}\n`;
+}
+
+/** Ready-to-run examples that read related rows: SQL joins plus ORM relation queries. */
+export function generateQueries(doc: DprDocument): GeneratedFile[] {
+  const all = withRelations(doc);
+  const rels = relationsOf(all);
+  const cols = (t: TableElement) => t.columns.map((c) => `${ident(t.name)}.${ident(c.name)} AS ${ident(t.name)}_${ident(c.name)}`).join(',\n  ');
+  const sql = rels.flatMap((r) => {
+    const on = `${ident(r.from.name)}.${ident(r.column.name)} = ${ident(r.to.name)}.${ident(r.target.name)}`;
+    return [
+      `-- ${r.from.name} -> ${r.to.name} (many-to-one): every ${r.from.name} row with its ${r.to.name}\nSELECT\n  ${cols(r.from)},\n  ${cols(r.to)}\nFROM ${ident(r.from.name)}\n${r.column.nullable ? 'LEFT ' : ''}JOIN ${ident(r.to.name)} ON ${on};`,
+      `-- ${r.to.name} -> ${r.from.name} (one-to-many): every ${r.to.name} row with all of its ${r.from.name}\nSELECT\n  ${cols(r.to)},\n  ${cols(r.from)}\nFROM ${ident(r.to.name)}\nLEFT JOIN ${ident(r.from.name)} ON ${on};`,
+    ];
+  });
+  const delegate = (t: TableElement) => modelName(t).replace(/^./, (c) => c.toLowerCase());
+  const drizzle = rels.flatMap((r) => [
+    `await db.query.${varName(r.from)}.findMany({ with: { ${r.one}: true } });`,
+    `await db.query.${varName(r.to)}.findMany({ with: { ${r.many}: true } });`,
+  ]);
+  const prisma = rels.flatMap((r) => [
+    `await prisma.${delegate(r.from)}.findMany({ include: { ${r.one}: true } });`,
+    `await prisma.${delegate(r.to)}.findMany({ include: { ${r.many}: true } });`,
+  ]);
+  const empty = '-- No relations yet. Draw an arrow between two tables, or set a foreign key on a column.\n';
+  return [
+    { path: 'queries.sql', content: sql.length ? sql.join('\n\n') + '\n' : empty },
+    { path: 'queries.drizzle.ts', content: `import { db } from './db';\n\n${drizzle.join('\n') || '// No relations yet.'}\n` },
+    { path: 'queries.prisma.ts', content: `import { PrismaClient } from '@prisma/client';\n\nconst prisma = new PrismaClient();\n\n${prisma.join('\n') || '// No relations yet.'}\n` },
+  ];
 }
 
 export function generateTypescript(doc: DprDocument): string {
-  return tables(doc)
+  return withArrowRelations(tables(doc), tableEdges(doc))
     .map((t) => {
       const fields = t.columns.map((c) => `  ${ident(c.name)}${c.nullable && !c.pk ? '?' : ''}: ${TS_TYPES[c.type]};`);
       return `export interface ${pascal(t.name)} {\n${fields.join('\n')}\n}`;
@@ -184,6 +246,7 @@ export function generate(doc: DprDocument, target: Target): GeneratedFile[] {
     case 'sql': return [{ path: 'schema.sql', content: generateSql(doc) }];
     case 'prisma': return [{ path: 'schema.prisma', content: generatePrisma(doc) }];
     case 'drizzle': return [{ path: 'schema.ts', content: generateDrizzle(doc) }];
+    case 'queries': return generateQueries(doc);
     case 'typescript': return [{ path: 'types.ts', content: generateTypescript(doc) }];
     case 'compose': return generateCompose(doc);
   }

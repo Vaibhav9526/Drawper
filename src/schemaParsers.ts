@@ -80,14 +80,15 @@ function splitTop(body: string, sep = ','): string[] {
 
 function parsePrisma(raw: string): ParsedTable[] {
   const text = stripComments(raw);
-  const models: { name: string; body: string; line: number }[] = [];
+  const models: { name: string; table: string; body: string; line: number }[] = [];
   for (const m of text.matchAll(/^\s*model\s+(\w+)\s*\{/gm)) {
     const open = m.index! + m[0].length - 1;
     const end = balanced(text, open);
-    if (end > 0) models.push({ name: m[1], body: text.slice(open + 1, end), line: lineAt(text, m.index! + m[0].indexOf('model')) });
+    if (end > 0) models.push({ name: m[1], table: text.slice(open + 1, end).match(/@@map\(\s*["'](\w+)["']/)?.[1] ?? m[1], body: text.slice(open + 1, end), line: lineAt(text, m.index! + m[0].indexOf('model')) });
   }
   const names = new Set(models.map((m) => m.name));
-  return models.map(({ name, body, line }) => {
+  const tableOf = new Map(models.map((m) => [m.name, m.table]));
+  return models.map(({ table: name, body, line }) => {
     const columns: Column[] = [];
     const relations: { fields: string[]; target: string; refs: string[] }[] = [];
     for (const l of body.split('\n')) {
@@ -96,10 +97,10 @@ function parsePrisma(raw: string): ParsedTable[] {
       const [, fname, ftype, list, opt, attrs] = f;
       if (names.has(ftype)) {
         const rel = attrs.match(/@relation\([^)]*fields:\s*\[([^\]]+)\][^)]*references:\s*\[([^\]]+)\]/);
-        if (rel && !list) relations.push({ fields: rel[1].split(',').map((s) => s.trim()), target: ftype, refs: rel[2].split(',').map((s) => s.trim()) });
+        if (rel && !list) relations.push({ fields: rel[1].split(',').map((s) => s.trim()), target: tableOf.get(ftype) ?? ftype, refs: rel[2].split(',').map((s) => s.trim()) });
         continue;
       }
-      columns.push({ name: fname, type: mapType(ftype), pk: /@id\b/.test(attrs) || undefined, unique: /@unique\b/.test(attrs) || undefined, nullable: !!opt || undefined });
+      columns.push({ name: fname, type: mapType(attrs.match(/@db\.(\w+)/)?.[1] ?? ftype), pk: /@id\b/.test(attrs) || undefined, unique: /@unique\b/.test(attrs) || undefined, nullable: !!opt || undefined });
     }
     for (const r of relations) r.fields.forEach((fld, i) => { const c = columns.find((x) => x.name === fld); if (c) c.ref = `${r.target}.${r.refs[i] ?? r.refs[0]}`; });
     const compound = body.match(/@@id\(\s*\[([^\]]+)\]/);
