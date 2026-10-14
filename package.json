@@ -1,0 +1,109 @@
+{
+  "name": "drawper",
+  "displayName": "Drawper",
+  "description": "A fast whiteboard canvas inside VS Code with system architecture and database schema panels that generate code (SQL, Prisma, Drizzle, TypeScript, docker-compose). Files use the .dpr extension.",
+  "version": "0.0.1",
+  "publisher": "tizmo",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "drawper.open",
+        "title": "Drawper: Open Drawing Canvas",
+        "icon": "media/brand/logo.svg"
+      },
+      {
+        "command": "drawper.new",
+        "title": "Drawper: New Drawing",
+        "icon": "media/brand/logo.svg"
+      },
+      {
+        "command": "drawper.viewSchema",
+        "title": "Drawper: View Schema in This File",
+        "icon": "media/brand/logo.svg"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "drawper.editor",
+        "displayName": "Drawper Canvas",
+        "selector": [
+          {
+            "filenamePattern": "*.dpr"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "languages": [
+      {
+        "id": "drawper",
+        "extensions": [
+          ".dpr"
+        ],
+        "aliases": [
+          "Drawper"
+        ],
+        "icon": {
+          "light": "media/brand/logo.svg",
+          "dark": "media/brand/logo.svg"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "drawper.open",
+          "group": "navigation@0"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "drawper.new",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "drawper.viewSchema",
+          "group": "navigation@9"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./ && node scripts/build-webview.mjs",
+    "typecheck:webview": "tsc -p src/webview",
+    "watch": "tsc -watch -p ./",
+    "watch:webview": "node scripts/build-webview.mjs --watch",
+    "vscode:prepublish": "npm run compile",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.25.0",
+    "playwright-core": "^1.49.1",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "icon": "media/brand/logo.png",
+  "galleryBanner": {
+    "color": "#7c2d12",
+    "theme": "dark"
+  }
+}

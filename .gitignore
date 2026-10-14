@@ -1,0 +1,10 @@
+node_modules/
+out/
+media/dist/
+*.vsix
+.tmp/
+
+# local agent tooling, not part of the extension
+.agents/
+.claude/
+skills-lock.json

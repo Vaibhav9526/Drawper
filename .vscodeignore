@@ -1,0 +1,13 @@
+src/**
+scripts/**
+.agents/**
+.claude/**
+.vscode/**
+**/*.map
+tsconfig.json
+skills-lock.json
+node_modules/**
+.tmp/**
+docs/**
+.gitignore
+AGENTS.md
