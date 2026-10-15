@@ -4,6 +4,7 @@
   "description": "A fast whiteboard canvas inside VS Code with system architecture and database schema panels that generate code (SQL, Prisma, Drizzle, TypeScript, docker-compose). Files use the .dpr extension.",
   "version": "0.0.1",
   "publisher": "tizmoAI",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Vaibhav9526/Drawper.git"
