@@ -118,6 +118,19 @@ export function App() {
     setTick((t) => t + 1);
   }, [refreshDims]);
 
+  useEffect(() => {
+    if (!viewer || !api) return;
+    const host = document.querySelector('.drawper-canvas');
+    if (!host) return;
+    let t = 0;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(t);
+      t = window.setTimeout(() => api.scrollToContent(api.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.9 }), 250);
+    });
+    ro.observe(host);
+    return () => { ro.disconnect(); clearTimeout(t); };
+  }, [api]);
+
   const changeScope = (next: 'related' | 'all') => {
     scopeRef.current = next;
     setScope(next);
@@ -225,21 +238,6 @@ export function App() {
           theme={mode}
           handleKeyboardGlobally
           UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: { saveFileToDisk: false } } }}
-          renderTopRightUI={() => (
-            <div className="drawper-top">
-              <span className="brand"><Logo size={18} />Drawper</span>
-              {viewer && <span className="chip">{meta.source} · {meta.tables} tables · {meta.dialect.join(' + ')}</span>}
-              {viewer && (
-                <span className="seg" role="group" aria-label="Schema scope">
-                  <button className={scope === 'related' ? 'on' : ''} onClick={() => changeScope('related')}>Related</button>
-                  <button className={scope === 'all' ? 'on' : ''} onClick={() => changeScope('all')}>Whole app</button>
-                </span>
-              )}
-              {viewer && selectedTable && <button onClick={() => vscode.postMessage({ type: 'goto', table: selectedTable.customData.name })}>Go to {selectedTable.customData.name} in source</button>}
-              {viewer && <button onClick={() => apiRef.current && vscode.postMessage({ type: 'saveAs', doc: serialize(apiRef.current.getSceneElements(), apiRef.current.getAppState(), apiRef.current.getFiles()) })}>Save as .dpr</button>}
-              {!viewer && <button onClick={() => setPanelOpen((o) => !o)}>{panelOpen ? 'Hide' : 'Show'} panels</button>}
-            </div>
-          )}
         >
           <MainMenu>
             <MainMenu.DefaultItems.SaveAsImage />
@@ -248,6 +246,20 @@ export function App() {
             <MainMenu.DefaultItems.ChangeCanvasBackground />
           </MainMenu>
         </Excalidraw>
+        <div className="drawper-top">
+          <span className="brand"><Logo size={18} /><span className="lbl">Drawper</span></span>
+          {viewer && <span className="chip" title={`${meta.source} · ${meta.dialect.join(' + ')}`}>{meta.tables} tables</span>}
+          {viewer && <button title="Fit all tables" onClick={() => apiRef.current?.scrollToContent(apiRef.current.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.9, animate: true })}>Fit</button>}
+          {viewer && (
+            <span className="seg" role="group" aria-label="Schema scope">
+              <button className={scope === 'related' ? 'on' : ''} onClick={() => changeScope('related')}>Related</button>
+              <button className={scope === 'all' ? 'on' : ''} onClick={() => changeScope('all')}>Whole app</button>
+            </span>
+          )}
+          {viewer && selectedTable && <button onClick={() => vscode.postMessage({ type: 'goto', table: selectedTable.customData.name })}><span className="lbl">Go to </span>{selectedTable.customData.name}<span className="lbl"> in source</span></button>}
+          {viewer && <button onClick={() => apiRef.current && vscode.postMessage({ type: 'saveAs', doc: serialize(apiRef.current.getSceneElements(), apiRef.current.getAppState(), apiRef.current.getFiles()) })} title="Save as .dpr">Save<span className="lbl"> as .dpr</span></button>}
+          {!viewer && <button onClick={() => setPanelOpen((o) => !o)}>{panelOpen ? 'Hide' : 'Show'} panels</button>}
+        </div>
       </div>
       {panelOpen && !viewer && api && <div className="drawper-resizer" onPointerDown={startResize} role="separator" aria-orientation="vertical" />}
       {panelOpen && !viewer && api && <Panel api={api} elements={elements.current} selection={selection} flush={flush} />}

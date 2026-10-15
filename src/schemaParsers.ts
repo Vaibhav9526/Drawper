@@ -155,7 +155,7 @@ function parseDrizzle(raw: string): ParsedTable[] {
   const text = stripComments(raw);
   const vars = new Map<string, string>();
   const found: { name: string; alias: string; body: string; extra: string; line: number }[] = [];
-  for (const m of text.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*(?:\w+\.table|(?:pg|mysql|sqlite|singlestore|mssql)Table)(?:<[^>(]*>)?\(\s*['"`]([\w.]+)['"`]\s*,\s*\{/g)) {
+  for (const m of text.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*(?:\w+\.table|\w*[Tt]able)(?:<[^>(]*>)?\(\s*['"`]([\w.]+)['"`]\s*,\s*\{/g)) {
     const open = m.index! + m[0].length - 1;
     const end = balanced(text, open);
     if (end < 0) continue;
@@ -344,13 +344,16 @@ export function parseSchema(text: string): ParsedSchema {
 export function mergeSchemas(files: { file: string; schema: ParsedSchema }[]): WorkspaceTable[] {
   const merged = new Map<string, WorkspaceTable>();
   for (const { file, schema } of files) for (const t of schema.tables) if (!merged.has(t.name)) merged.set(t.name, { ...t, file });
+  const loose = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/(table|schema|model|entity)$/, '').replace(/ies$/, 'y').replace(/s$/, '');
   const byAlias = new Map<string, string>();
   for (const t of merged.values()) if (t.alias && !merged.has(t.alias)) byAlias.set(t.alias, t.name);
+  const byLoose = new Map<string, string>();
+  for (const t of merged.values()) for (const n of [t.name, t.alias ?? t.name]) if (!byLoose.has(loose(n))) byLoose.set(loose(n), t.name);
   return [...merged.values()].map((t) => ({
     ...t,
     columns: t.columns.map((c) => {
       const [table, ...rest] = c.ref?.split('.') ?? [];
-      const real = table && byAlias.get(table);
+      const real = table && !merged.has(table) && (byAlias.get(table) ?? byLoose.get(loose(table)));
       return real ? { ...c, ref: [real, ...rest].join('.') } : c;
     }),
   }));
