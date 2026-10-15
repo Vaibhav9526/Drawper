@@ -9,5 +9,6 @@ skills-lock.json
 node_modules/**
 .tmp/**
 docs/**
+*.gif
 .gitignore
 AGENTS.md

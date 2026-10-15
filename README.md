@@ -184,3 +184,7 @@ Drawper/
 | Coral | `#EC5451` |
 | Mint | `#87DAC7` |
 | Amber | `#EAAA2A` |
+
+## License
+
+[MIT](LICENSE)
