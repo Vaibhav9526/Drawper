@@ -187,6 +187,7 @@ async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, foc
   const existing = viewers.get(key);
   const tableFiles = new Map<string, string>();
   const send = async (panel: vscode.WebviewPanel, focusTable?: string) => {
+    if (!schemaOf(document).tables.length) return;
     const tables = await appSchema(document);
     tableFiles.clear();
     for (const t of tables) tableFiles.set(t.name, t.file);
@@ -210,7 +211,9 @@ async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, foc
     clearTimeout(timer);
     timer = setTimeout(() => send(panel), 400);
   });
-  panel.onDidDispose(() => { sub.dispose(); clearTimeout(timer); viewers.delete(key); });
+  const saved = vscode.workspace.onDidSaveTextDocument(() => send(panel));
+  const shownAgain = panel.onDidChangeViewState((e) => { if (e.webviewPanel.visible) void send(panel); });
+  panel.onDidDispose(() => { sub.dispose(); saved.dispose(); shownAgain.dispose(); clearTimeout(timer); viewers.delete(key); });
 
   serial(panel.webview, async (msg) => {
     if (msg.type === 'ready') return send(panel, focus);
