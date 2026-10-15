@@ -108,12 +108,13 @@ body { font-family: var(--vscode-font-family); font-size: 12px; color: var(--vsc
 /* responsive canvas chrome */
 .drawper-canvas { position: relative; container-type: inline-size; container-name: canvas; }
 .excalidraw .HintViewer { display: none !important; }
-.drawper-top { position: absolute; z-index: 6; top: 66px; left: 12px; right: 12px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
+.drawper-top { position: absolute; z-index: 6; top: 12px; left: 64px; right: 12px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
 .drawper-top > * { pointer-events: auto; }
 .vscode-dark .drawper-top .brand, .vscode-high-contrast .drawper-top .brand { background: #2e2936; color: #ffd900; }
 .excalidraw .ToolIcon__icon:has(input:checked) { background: #ffd900 !important; }
 .excalidraw .ToolIcon__icon:has(input:checked) svg { color: #2e2936; }
-@container canvas (min-width: 1150px) { .drawper-top { top: 12px; left: auto; } }
+.excalidraw .shapes-section { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4; }
+@container canvas (max-width: 760px) { .excalidraw .shapes-section { bottom: 62px; } }
 @container canvas (max-width: 1000px) {
   .drawper-top .brand .lbl, .drawper-top button .lbl { display: none; }
   .drawper-top .brand { padding: 5px 7px; }
@@ -125,3 +126,4 @@ body { font-family: var(--vscode-font-family); font-size: 12px; color: var(--vsc
 }
 @container canvas (max-width: 560px) { .drawper-top .brand, .drawper-top .chip { display: none; } }
 @container canvas (max-width: 560px) { .drawper-top { right: 58px; } }
+.excalidraw .App-top-bar { top: auto !important; bottom: 60px !important; }

@@ -131,6 +131,18 @@ export function App() {
     return () => { ro.disconnect(); clearTimeout(t); };
   }, [api]);
 
+  useEffect(() => {
+    if (viewer) return;
+    const toggle = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.main-menu-trigger')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPanelOpen((o) => !o);
+    };
+    document.addEventListener('click', toggle, true);
+    return () => document.removeEventListener('click', toggle, true);
+  }, []);
+
   const changeScope = (next: 'related' | 'all') => {
     scopeRef.current = next;
     setScope(next);
