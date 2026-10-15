@@ -48,3 +48,14 @@ console.log('parsers ok');
   if (names !== 'url,users') throw new Error('related wrong: ' + names);
   console.log('ok cross-file schema merge');
 }
+
+{
+  const { mergeSchemas } = await import('../out/schemaParsers.js');
+  const mk = (name, cols) => ({ tables: [{ name, columns: cols, line: 0 }], dialect: [] });
+  const all = mergeSchemas([
+    { file: 'a', schema: mk('url', [{ name: 'userId', type: 'uuid', ref: 'usersTable.id' }]) },
+    { file: 'b', schema: mk('users', [{ name: 'id', type: 'uuid', pk: true }]) },
+  ]);
+  if (all[0].columns[0].ref !== 'users.id') throw new Error('loose ref not resolved: ' + all[0].columns[0].ref);
+  console.log('ok loose ref match');
+}

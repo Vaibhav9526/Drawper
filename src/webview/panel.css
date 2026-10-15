@@ -28,7 +28,7 @@ body { font-family: var(--vscode-font-family); font-size: 12px; color: var(--vsc
 .drawper-resizer::after { content: ''; position: absolute; inset: 0 1px; background: transparent; transition: background .12s; }
 .drawper-resizer:hover::after, .drawper-resizer:active::after { background: #ffd900; }
 
-.drawper-top { white-space: nowrap; display: flex; gap: 6px; align-items: center; }
+.drawper-top { display: flex; gap: 6px; align-items: center; white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 .drawper-top .brand { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: .02em; padding: 5px 12px 5px 7px; border-radius: 11px; background: #fff6c2; color: #2e2936; font-size: 13px; border: 1px solid rgba(46, 41, 54, .3); }
 .excalidraw.theme--dark .drawper-top .brand { background: #2e2936; color: #ffd900; }
 .drawper-top .chip { padding: 6px 10px; border-radius: 10px; background: rgba(255, 217, 0, .12); color: var(--vscode-foreground); font-size: 12px; }
@@ -104,3 +104,24 @@ body { font-family: var(--vscode-font-family); font-size: 12px; color: var(--vsc
 .drawper-top .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 12px; background: rgba(255, 217, 0, .1); }
 .drawper-top .seg button { height: 28px; border-color: transparent; background: transparent; }
 .drawper-top .seg button.on { background: #ffd900; color: #2e2936; }
+
+/* responsive canvas chrome */
+.drawper-canvas { position: relative; container-type: inline-size; container-name: canvas; }
+.excalidraw .HintViewer { display: none !important; }
+.drawper-top { position: absolute; z-index: 6; top: 66px; left: 12px; right: 12px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
+.drawper-top > * { pointer-events: auto; }
+.vscode-dark .drawper-top .brand, .vscode-high-contrast .drawper-top .brand { background: #2e2936; color: #ffd900; }
+.excalidraw .ToolIcon__icon:has(input:checked) { background: #ffd900 !important; }
+.excalidraw .ToolIcon__icon:has(input:checked) svg { color: #2e2936; }
+@container canvas (min-width: 1150px) { .drawper-top { top: 12px; left: auto; } }
+@container canvas (max-width: 1000px) {
+  .drawper-top .brand .lbl, .drawper-top button .lbl { display: none; }
+  .drawper-top .brand { padding: 5px 7px; }
+}
+@container canvas (max-width: 760px) {
+  .drawper-top button { padding: 0 8px; height: 28px; font-size: 11px; }
+  .excalidraw .ToolIcon__icon { width: 1.9rem; height: 1.9rem; }
+  .excalidraw .App-toolbar .ToolIcon__keybinding { display: none; }
+}
+@container canvas (max-width: 560px) { .drawper-top .brand, .drawper-top .chip { display: none; } }
+@container canvas (max-width: 560px) { .drawper-top { right: 58px; } }
