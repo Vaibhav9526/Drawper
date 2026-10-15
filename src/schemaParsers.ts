@@ -4,6 +4,11 @@ export interface ParsedTable {
   name: string;
   columns: Column[];
   line: number;
+  alias?: string;
+}
+
+export interface WorkspaceTable extends ParsedTable {
+  file: string;
 }
 
 export interface ParsedSchema {
@@ -149,16 +154,16 @@ function parseSql(raw: string): ParsedTable[] {
 function parseDrizzle(raw: string): ParsedTable[] {
   const text = stripComments(raw);
   const vars = new Map<string, string>();
-  const found: { name: string; body: string; extra: string; line: number }[] = [];
+  const found: { name: string; alias: string; body: string; extra: string; line: number }[] = [];
   for (const m of text.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*(?:\w+\.table|(?:pg|mysql|sqlite|singlestore|mssql)Table)(?:<[^>(]*>)?\(\s*['"`]([\w.]+)['"`]\s*,\s*\{/g)) {
     const open = m.index! + m[0].length - 1;
     const end = balanced(text, open);
     if (end < 0) continue;
     vars.set(m[1], m[2]);
     const call = balanced(text, text.indexOf('(', m.index!));
-    found.push({ name: m[2], body: text.slice(open + 1, end), extra: call > end ? text.slice(end + 1, call) : '', line: lineAt(text, m.index!) });
+    found.push({ name: m[2], alias: m[1], body: text.slice(open + 1, end), extra: call > end ? text.slice(end + 1, call) : '', line: lineAt(text, m.index!) });
   }
-  return found.map(({ name, body, extra, line }) => {
+  return found.map(({ name, alias, body, extra, line }) => {
     const columns: Column[] = [];
     const keys = new Map<string, Column>();
     for (const item of splitTop(body)) {
@@ -180,7 +185,7 @@ function parseDrizzle(raw: string): ParsedTable[] {
       const c = keyOf(fk[1])[0];
       if (c) c.ref = `${vars.get(fk[2]) ?? fk[2]}.${fk[3]}`;
     }
-    return { name, columns, line };
+    return { name, columns, line, alias };
   });
 }
 
@@ -333,4 +338,33 @@ export function parseSchema(text: string): ParsedSchema {
     } catch { /* malformed source: skip this dialect */ }
   }
   return { tables, dialect };
+}
+
+/** Merge per-file schemas into one app schema. Earlier files win name clashes; refs written as an imported Drizzle variable are rewritten to the table name. */
+export function mergeSchemas(files: { file: string; schema: ParsedSchema }[]): WorkspaceTable[] {
+  const merged = new Map<string, WorkspaceTable>();
+  for (const { file, schema } of files) for (const t of schema.tables) if (!merged.has(t.name)) merged.set(t.name, { ...t, file });
+  const byAlias = new Map<string, string>();
+  for (const t of merged.values()) if (t.alias && !merged.has(t.alias)) byAlias.set(t.alias, t.name);
+  return [...merged.values()].map((t) => ({
+    ...t,
+    columns: t.columns.map((c) => {
+      const [table, ...rest] = c.ref?.split('.') ?? [];
+      const real = table && byAlias.get(table);
+      return real ? { ...c, ref: [real, ...rest].join('.') } : c;
+    }),
+  }));
+}
+
+/** Tables defined in `file` plus every table they reference or that references them. */
+export function relatedTo(tables: WorkspaceTable[], file: string): WorkspaceTable[] {
+  const own = new Set(tables.filter((t) => t.file === file).map((t) => t.name));
+  const keep = new Set(own);
+  for (const t of tables) for (const c of t.columns) {
+    const target = c.ref?.split('.')[0];
+    if (!target) continue;
+    if (own.has(t.name)) keep.add(target);
+    if (own.has(target)) keep.add(t.name);
+  }
+  return tables.filter((t) => keep.has(t.name));
 }

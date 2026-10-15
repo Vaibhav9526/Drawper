@@ -35,3 +35,16 @@ assert.equal(names(s), 'Author,Book'); assert.equal(col(s, 'Book', 'author_id').
 s = parseSchema(`const userSchema = new mongoose.Schema({\n name: { type: String, required: true },\n email: String,\n});\nconst postSchema = new Schema({\n author: { type: Schema.Types.ObjectId, ref: 'User' },\n title: String\n});\nmodule.exports = [mongoose.model('User', userSchema), mongoose.model('Post', postSchema)];`);
 assert.equal(names(s), 'User,Post'); assert.equal(col(s, 'Post', 'author').ref, 'User._id');
 console.log('parsers ok');
+
+{
+  const { parseSchema, mergeSchemas, relatedTo } = await import('../out/schemaParsers.js');
+  const users = parseSchema(`import { pgTable, uuid } from 'drizzle-orm/pg-core';\nexport const usersTable = pgTable("users", { id: uuid().primaryKey() });`);
+  const url = parseSchema(`import { usersTable } from './schema.models.js';\nconst urlTable = pgTable("url", { id: uuid().primaryKey(), userId: uuid().references(() => usersTable.id) });`);
+  const lone = parseSchema(`export const logTable = pgTable("log", { id: uuid().primaryKey() });`);
+  const all = mergeSchemas([{ file: 'url', schema: url }, { file: 'users', schema: users }, { file: 'log', schema: lone }]);
+  const fk = all.find((t) => t.name === 'url').columns.find((c) => c.name === 'userId').ref;
+  if (fk !== 'users.id') throw new Error('cross-file ref not resolved: ' + fk);
+  const names = relatedTo(all, 'url').map((t) => t.name).sort().join();
+  if (names !== 'url,users') throw new Error('related wrong: ' + names);
+  console.log('ok cross-file schema merge');
+}
