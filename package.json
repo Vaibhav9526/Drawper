@@ -3,7 +3,11 @@
   "displayName": "Drawper",
   "description": "A fast whiteboard canvas inside VS Code with system architecture and database schema panels that generate code (SQL, Prisma, Drizzle, TypeScript, docker-compose). Files use the .dpr extension.",
   "version": "0.0.1",
-  "publisher": "tizmo",
+  "publisher": "tizmoAI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vaibhav9526/Drawper.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -12,7 +16,9 @@
     "Other"
   ],
   "main": "./out/extension.js",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {
@@ -127,5 +133,22 @@
   "galleryBanner": {
     "color": "#7c2d12",
     "theme": "dark"
-  }
+  },
+  "homepage": "https://github.com/Vaibhav9526/Drawper#readme",
+  "bugs": {
+    "url": "https://github.com/Vaibhav9526/Drawper/issues"
+  },
+  "keywords": [
+    "whiteboard",
+    "diagram",
+    "architecture",
+    "database",
+    "schema",
+    "er diagram",
+    "prisma",
+    "drizzle",
+    "sql",
+    "docker-compose",
+    "codegen"
+  ]
 }
