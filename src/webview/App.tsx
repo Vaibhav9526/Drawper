@@ -55,6 +55,9 @@ export function App() {
   const timer = useRef(0);
   const pending = useRef<any>(null);
   const apiRef = useRef<any>(null);
+  const [scope, setScope] = useState<'related' | 'all'>('related');
+  const scopeRef = useRef<'related' | 'all'>('related');
+  const schemaMsg = useRef<any>(null);
   apiRef.current = api;
 
   const flush = useCallback(() => {
@@ -88,13 +91,16 @@ export function App() {
     }, 800);
   }, []);
 
-  const showSchema = useCallback((m: any) => {
+  const showSchema = useCallback((m: any, relayout = false) => {
+    schemaMsg.current = m;
     const prev = new Map<string, { x: number; y: number }>();
-    for (const e of elements.current) if (!e.isDeleted && e.customData?.drawper === 'table') prev.set(e.customData.name, { x: e.x, y: e.y });
-    const els = buildSchemaScene(m.tables, prev);
+    if (!relayout) for (const e of elements.current) if (!e.isDeleted && e.customData?.drawper === 'table') prev.set(e.customData.name, { x: e.x, y: e.y });
+    const keep = new Set<string>(m.related);
+    const tables = scopeRef.current === 'all' ? m.tables : m.tables.filter((t: any) => keep.has(t.name));
+    const els = buildSchemaScene(tables, prev);
     elements.current = els;
     lastVersion.current = getSceneVersion(els);
-    setMeta({ source: m.source, dialect: m.dialect, tables: m.tables.length });
+    setMeta({ source: m.source, dialect: m.dialect, tables: tables.length });
     refreshDims();
     if (!apiRef.current) return setDoc({ elements: els, appState: {}, files: {} });
     apiRef.current.updateScene({ elements: els, ...NEVER });
@@ -105,6 +111,12 @@ export function App() {
     } else if (!prev.size) apiRef.current.scrollToContent(els, { fitToViewport: true, viewportZoomFactor: 0.9 });
     setTick((t) => t + 1);
   }, [refreshDims]);
+
+  const changeScope = (next: 'related' | 'all') => {
+    scopeRef.current = next;
+    setScope(next);
+    if (schemaMsg.current) showSchema({ ...schemaMsg.current, focus: undefined }, true);
+  };
 
   useEffect(() => {
     const onMessage = (ev: MessageEvent) => {
@@ -211,6 +223,12 @@ export function App() {
             <div className="drawper-top">
               <span className="brand"><Logo size={18} />Drawper</span>
               {viewer && <span className="chip">{meta.source} · {meta.tables} tables · {meta.dialect.join(' + ')}</span>}
+              {viewer && (
+                <span className="seg" role="group" aria-label="Schema scope">
+                  <button className={scope === 'related' ? 'on' : ''} onClick={() => changeScope('related')}>Related</button>
+                  <button className={scope === 'all' ? 'on' : ''} onClick={() => changeScope('all')}>Whole app</button>
+                </span>
+              )}
               {viewer && selectedTable && <button onClick={() => vscode.postMessage({ type: 'goto', table: selectedTable.customData.name })}>Go to {selectedTable.customData.name} in source</button>}
               {viewer && <button onClick={() => apiRef.current && vscode.postMessage({ type: 'saveAs', doc: serialize(apiRef.current.getSceneElements(), apiRef.current.getAppState(), apiRef.current.getFiles()) })}>Save as .dpr</button>}
               {!viewer && <button onClick={() => setPanelOpen((o) => !o)}>{panelOpen ? 'Hide' : 'Show'} panels</button>}

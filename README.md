@@ -44,7 +44,7 @@
 - **Code generation.** SQL, Prisma, **Drizzle** (with `relations()`), TypeScript types and `docker-compose.yml` with a Node scaffold per service.
 - **Relation queries.** One click writes ready-to-run SQL joins plus Drizzle and Prisma relation queries for every relation.
 - **Convert code from the IDE.** Turn an existing schema file into another format without opening the canvas. See [Convert code](#convert-code-from-your-ide).
-- **Schema viewer for existing code.** A CodeLens appears above schema definitions: **View in Drawper**.
+- **Schema viewer for existing code.** A CodeLens appears above schema definitions: **View in Drawper**. It shows the file's tables plus related tables from other files (foreign keys are followed across imports), and a **Whole app** toggle shows every schema in the workspace. "Go to" jumps to the right file.
 - **Icons and SVG.** Built-in icon library, SVG import, and paste SVG markup straight onto the canvas.
 - **Resizable side panel.** Drag its left edge; the width is remembered.
 - **Plain JSON files.** Drawings are saved as `.dpr` and diff cleanly.

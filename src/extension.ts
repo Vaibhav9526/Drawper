@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { generate, Target } from './codegen';
 import { DprDocument, docFromTables, emptyDocument, parseDocument } from './model';
-import { ParsedSchema, parseSchema } from './schemaParsers';
+import { ParsedSchema, WorkspaceTable, mergeSchemas, parseSchema, relatedTo } from './schemaParsers';
 
 const VIEW_TYPE = 'drawper.editor';
 const MAX_SCAN_BYTES = 200_000;
@@ -148,7 +148,35 @@ class SchemaLenses implements vscode.CodeLensProvider {
   }
 }
 
-const viewers = new Map<string, vscode.WebviewPanel>();
+const SCAN_GLOB = '**/*.{prisma,sql,ts,tsx,mts,cts,js,jsx,mjs,cjs,py}';
+const SCAN_SKIP = '**/{node_modules,dist,out,build,.git,.next,.venv,venv,__pycache__}/**';
+const MAX_SCAN_FILES = 800;
+const diskCache = new Map<string, { mtime: number; schema: ParsedSchema }>();
+
+async function schemaOfUri(uri: vscode.Uri): Promise<ParsedSchema | undefined> {
+  const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+  if (open) return schemaOf(open);
+  try {
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.size > MAX_SCAN_BYTES) return undefined;
+    const key = uri.toString();
+    const hit = diskCache.get(key);
+    if (hit?.mtime === stat.mtime) return hit.schema;
+    const schema = parseSchema(Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8'));
+    diskCache.set(key, { mtime: stat.mtime, schema });
+    return schema;
+  } catch { return undefined; }
+}
+
+/** The file's own tables first, then every other schema in the workspace, merged into one app schema. */
+async function appSchema(document: vscode.TextDocument): Promise<WorkspaceTable[]> {
+  const self = document.uri.toString();
+  const uris = (await vscode.workspace.findFiles(SCAN_GLOB, SCAN_SKIP, MAX_SCAN_FILES)).filter((u) => u.toString() !== self && !u.fsPath.endsWith('.d.ts'));
+  const others = await Promise.all(uris.map(async (u) => ({ file: u.toString(), schema: await schemaOfUri(u) })));
+  return mergeSchemas([{ file: self, schema: schemaOf(document) }, ...others.filter((o): o is { file: string; schema: ParsedSchema } => !!o.schema?.tables.length)]);
+}
+
+const viewers = new Map<string, { panel: vscode.WebviewPanel; send: (focus?: string) => Promise<void> }>();
 
 async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, focus?: string) {
   const uri = target ?? vscode.window.activeTextEditor?.document.uri;
@@ -157,21 +185,28 @@ async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, foc
   if (!schemaOf(document).tables.length) return void vscode.window.showWarningMessage('Drawper: no tables found in this file.');
   const key = uri.toString();
   const existing = viewers.get(key);
-  const send = (panel: vscode.WebviewPanel, focusTable?: string) => {
-    const { tables, dialect } = schemaOf(document);
-    panel.webview.postMessage({ type: 'schema', tables, dialect, focus: focusTable, source: path.basename(uri.fsPath) });
+  const tableFiles = new Map<string, string>();
+  const send = async (panel: vscode.WebviewPanel, focusTable?: string) => {
+    const tables = await appSchema(document);
+    tableFiles.clear();
+    for (const t of tables) tableFiles.set(t.name, t.file);
+    const related = relatedTo(tables, key).map((t) => t.name);
+    panel.webview.postMessage({
+      type: 'schema', tables: tables.map(({ name, columns }) => ({ name, columns })), related, dialect: schemaOf(document).dialect,
+      focus: focusTable, source: path.basename(uri.fsPath),
+    });
   };
-  if (existing) { existing.reveal(vscode.ViewColumn.Beside, true); return send(existing, focus); }
+  if (existing) { existing.panel.reveal(vscode.ViewColumn.Beside, true); return existing.send(focus); }
 
   const panel = vscode.window.createWebviewPanel('drawper.schema', `Schema: ${path.basename(uri.fsPath)}`, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {
     enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(ctx.extensionUri, 'media', 'dist')],
   });
-  viewers.set(key, panel);
+  viewers.set(key, { panel, send: (f) => send(panel, f) });
   panel.webview.html = webviewHtml(panel.webview, ctx, 'viewer', path.basename(uri.fsPath));
 
   let timer: NodeJS.Timeout | undefined;
   const sub = vscode.workspace.onDidChangeTextDocument((e) => {
-    if (e.document.uri.toString() !== key) return;
+    if (e.document.uri.scheme !== 'file' || !e.contentChanges.length) return;
     clearTimeout(timer);
     timer = setTimeout(() => send(panel), 400);
   });
@@ -180,8 +215,11 @@ async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, foc
   serial(panel.webview, async (msg) => {
     if (msg.type === 'ready') return send(panel, focus);
     if (msg.type === 'goto') {
-      const t = schemaOf(document).tables.find((x) => x.name === msg.table);
-      if (t) await vscode.window.showTextDocument(document, { viewColumn: vscode.ViewColumn.One, selection: new vscode.Range(t.line, 0, t.line, 0) });
+      const file = tableFiles.get(msg.table);
+      if (!file) return;
+      const target = await vscode.workspace.openTextDocument(vscode.Uri.parse(file));
+      const t = schemaOf(target).tables.find((x) => x.name === msg.table);
+      if (t) await vscode.window.showTextDocument(target, { viewColumn: vscode.ViewColumn.One, selection: new vscode.Range(t.line, 0, t.line, 0) });
       return;
     }
     if (msg.type === 'saveAs') {
