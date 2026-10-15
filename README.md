@@ -17,6 +17,12 @@
 
 ---
 
+## Demo
+
+<p align="center">
+  <img src="docs/images/drawper.gif" alt="Drawper demo" width="800" />
+</p>
+
 ## Screenshots
 
 **Architecture canvas.** Drop components, connect them with arrows, generate a runnable `docker-compose`.
