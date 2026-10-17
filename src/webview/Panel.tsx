@@ -8,7 +8,7 @@ import { vscode } from './vscode';
 import { tableEdges } from '../model';
 import { fkColumnFor } from '../relations';
 
-type Props = { api: any; elements: readonly any[]; selection: string; flush: () => void };
+type Props = { api: any; elements: readonly any[]; selection: string; flush: () => void; onClose: () => void };
 type Tab = 'arch' | 'schema' | 'icons';
 
 type Capture = { captureUpdate: (typeof CaptureUpdateAction)[keyof typeof CaptureUpdateAction] };
@@ -39,7 +39,7 @@ function syncRefs(els: any[], before: TableData, after: TableData): any[] {
   return out;
 }
 
-export function Panel({ api, elements, selection, flush }: Props) {
+export function Panel({ api, elements, selection, flush, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('arch');
   const selected = new Set(selection.split(',').filter(Boolean));
   const current = elements.find((e) => !e.isDeleted && selected.has(e.id) && ['service', 'table'].includes(e.customData?.drawper));
@@ -129,6 +129,7 @@ export function Panel({ api, elements, selection, flush }: Props) {
       <header>
         <Logo size={26} />
         <div><strong>Drawper</strong><span>{services.length} {services.length === 1 ? 'component' : 'components'} · {tables.length} {tables.length === 1 ? 'table' : 'tables'}</span></div>
+        <button className="close" onClick={onClose} title="Close panel" aria-label="Close panel">✕</button>
       </header>
       <nav className="tabs">
         {([['arch', 'layers', 'Architecture'], ['schema', 'table', 'Schema'], ['icons', 'image', 'Icons']] as const).map(([id, ic, label]) => (

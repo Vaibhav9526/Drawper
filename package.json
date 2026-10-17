@@ -44,13 +44,17 @@
       },
       {
         "command": "drawper.addToCanvas",
-        "title": "Drawper: Add Selected Code to Canvas",
-        "icon": "media/brand/logo.svg"
+        "title": "Drawper: Add Selection to Canvas",
+        "icon": "media/brand/add.svg"
       },
       {
         "command": "drawper.annotateCode",
-        "title": "Drawper: Annotate This Code",
-        "icon": "media/brand/logo.svg"
+        "title": "Drawper: Open Code Canvas",
+        "icon": "media/brand/canvas.svg"
+      },
+      {
+        "command": "drawper.toggleOverlay",
+        "title": "Drawper: Show or Hide Drawings on Editor"
       }
     ],
     "customEditors": [
@@ -85,6 +89,16 @@
         {
           "command": "drawper.open",
           "group": "navigation@0"
+        },
+        {
+          "command": "drawper.annotateCode",
+          "when": "resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@2"
+        },
+        {
+          "command": "drawper.addToCanvas",
+          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@3"
         }
       ],
       "explorer/context": [
@@ -100,7 +114,7 @@
         {
           "command": "drawper.convertSchema",
           "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
-          "group": "navigation@10"
+          "group": "navigation@20"
         }
       ],
       "editor/context": [
@@ -115,16 +129,33 @@
           "group": "navigation@10"
         },
         {
-          "command": "drawper.addToCanvas",
-          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
-          "group": "navigation@11"
-        },
-        {
           "command": "drawper.annotateCode",
           "when": "resourceScheme == file && resourceExtname != .dpr",
-          "group": "navigation@12"
+          "group": "navigation@21"
+        },
+        {
+          "command": "drawper.addToCanvas",
+          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@22"
         }
       ]
+    },
+    "configuration": {
+      "title": "Drawper",
+      "properties": {
+        "drawper.overlay.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show drawings made on a code canvas over the matching text editor (display only)."
+        },
+        "drawper.overlay.charWidthRatio": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0.4,
+          "maximum": 0.8,
+          "description": "Width of one editor column as a fraction of the font size. Adjust if drawings drift sideways (Consolas is about 0.55, most other monospace fonts 0.6)."
+        }
+      }
     }
   },
   "scripts": {

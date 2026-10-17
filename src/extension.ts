@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { generate, Target } from './codegen';
-import { CodeSnippet, addCodeCard } from './codeCard';
+import { CodeSnippet, addCodeCard, upsertLiveCard } from './codeCard';
+import { registerLiveCode, sidecarUri, wholeFile, writeCanvas } from './liveCode';
 import { DprDocument, docFromTables, emptyDocument, parseDocument } from './model';
 import { ParsedSchema, WorkspaceTable, mergeSchemas, parseSchema, relatedTo } from './schemaParsers';
 
@@ -185,6 +186,42 @@ async function appSchema(document: vscode.TextDocument): Promise<WorkspaceTable[
   return mergeSchemas([{ file: self, schema: schemaOf(document) }, ...others.filter((o): o is { file: string; schema: ParsedSchema } => !!o.schema?.tables.length)]);
 }
 
+/** A lens right above the selection so the draw and copy actions are where the eye already is. */
+class SelectionLenses implements vscode.CodeLensProvider {
+  private readonly changed = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses = this.changed.event;
+  refresh() { this.changed.fire(); }
+
+  provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== document || document.fileName.endsWith('.dpr') || editor.selection.isEmpty) return [];
+    const range = new vscode.Range(editor.selection.start.line, 0, editor.selection.start.line, 0);
+    return [
+      new vscode.CodeLens(range, { title: '$(window) Canvas', command: 'drawper.annotateCode', tooltip: 'Drawper: open a canvas beside this file to draw on its code' }),
+      new vscode.CodeLens(range, { title: '$(add) Add to canvas', command: 'drawper.addToCanvas', tooltip: 'Drawper: add the selected code to a canvas' }),
+    ];
+  }
+}
+
+function statusButtons(): vscode.Disposable {
+  const canvas = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
+  canvas.text = '$(window) Canvas';
+  canvas.tooltip = 'Drawper: open a canvas beside this file to draw on its code';
+  canvas.command = 'drawper.annotateCode';
+  const add = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  add.text = '$(add) Add to canvas';
+  add.tooltip = 'Drawper: add the selected code to a canvas';
+  add.command = 'drawper.addToCanvas';
+  const update = () => {
+    const editor = vscode.window.activeTextEditor;
+    const source = !!editor && editor.document.uri.scheme === 'file' && !editor.document.fileName.endsWith('.dpr');
+    if (source) canvas.show(); else canvas.hide();
+    if (source && !editor.selection.isEmpty) add.show(); else add.hide();
+  };
+  update();
+  return vscode.Disposable.from(canvas, add, vscode.window.onDidChangeActiveTextEditor(update), vscode.window.onDidChangeTextEditorSelection(update));
+}
+
 const viewers = new Map<string, { panel: vscode.WebviewPanel; send: (focus?: string) => Promise<void> }>();
 
 async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, focus?: string) {
@@ -278,14 +315,8 @@ function snippetFromEditor(editor: vscode.TextEditor): CodeSnippet {
   return { code, file: vscode.workspace.asRelativePath(document.uri), startLine: range.start.line + 1, language: document.languageId };
 }
 
-async function addSnippetTo(target: vscode.Uri, snippet: CodeSnippet) {
-  const document = await vscode.workspace.openTextDocument(target);
-  let doc: DprDocument;
-  try { doc = parseDocument(document.getText()); } catch { doc = emptyDocument(); }
-  const edit = new vscode.WorkspaceEdit();
-  edit.replace(target, new vscode.Range(0, 0, document.lineCount, 0), JSON.stringify(addCodeCard(doc, snippet), null, 2));
-  await vscode.workspace.applyEdit(edit);
-  await document.save();
+async function showCanvas(target: vscode.Uri, change: (doc: DprDocument) => DprDocument) {
+  await writeCanvas(target, change);
   await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
 }
 
@@ -313,19 +344,24 @@ async function addToCanvas() {
   const snippet = snippetFromEditor(editor);
   if (!snippet.code.trim()) return void vscode.window.showWarningMessage('Drawper: nothing to add, the selection is empty.');
   const target = await pickCanvas();
-  if (target) await addSnippetTo(target, snippet);
+  if (target) await showCanvas(target, (doc) => addCodeCard(doc, snippet));
 }
 
-/** VS Code has no API to draw over its text editor, so the code is placed on a sidecar canvas opened beside it. */
+/**
+ * Opens a canvas beside the file for drawing on its code. A selection becomes a one-off card; with no selection the
+ * whole file becomes a live card that follows edits, and the drawings are also shown over the real editor.
+ */
 async function annotateCode() {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.uri.scheme !== 'file' || editor.document.fileName.endsWith('.dpr')) return void vscode.window.showWarningMessage('Drawper: open a source file first.');
+  const side = sidecarUri(editor.document.uri);
+  if (!(await exists(side))) await vscode.workspace.fs.writeFile(side, Buffer.from(JSON.stringify(emptyDocument(), null, 2)));
+  if (editor.selection.isEmpty) {
+    if (!editor.document.getText().trim()) return void vscode.window.showWarningMessage('Drawper: the file is empty.');
+    return showCanvas(side, (doc) => upsertLiveCard(doc, wholeFile(editor.document)));
+  }
   const snippet = snippetFromEditor(editor);
-  if (!snippet.code.trim()) return void vscode.window.showWarningMessage('Drawper: nothing to annotate, the selection is empty.');
-  const source = editor.document.uri.fsPath;
-  const sidecar = vscode.Uri.file(path.join(path.dirname(source), `${path.basename(source)}.annotations.dpr`));
-  if (!(await exists(sidecar))) await vscode.workspace.fs.writeFile(sidecar, Buffer.from(JSON.stringify(emptyDocument(), null, 2)));
-  await addSnippetTo(sidecar, snippet);
+  await showCanvas(side, (doc) => addCodeCard(doc, snippet));
 }
 
 async function newDrawing() {
@@ -356,7 +392,12 @@ async function openDrawing() {
 }
 
 export function activate(ctx: vscode.ExtensionContext) {
+  const selectionLenses = new SelectionLenses();
   ctx.subscriptions.push(
+    statusButtons(),
+    registerLiveCode(),
+    vscode.languages.registerCodeLensProvider({ scheme: 'file' }, selectionLenses),
+    vscode.window.onDidChangeTextEditorSelection(() => selectionLenses.refresh()),
     vscode.window.registerCustomEditorProvider(VIEW_TYPE, new DrawperEditor(ctx), { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.languages.registerCodeLensProvider({ scheme: 'file', pattern: '**/*.{prisma,sql,ts,tsx,mts,cts,js,jsx,mjs,cjs,py}' }, new SchemaLenses()),
     vscode.workspace.onDidCloseTextDocument((d) => schemaCache.delete(d.uri.toString())),
