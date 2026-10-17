@@ -67,3 +67,26 @@ console.log('codegen queries ok');
   if (doc.elements.length !== before + 5) throw new Error('card should be 5 elements');
   console.log('codegen code card ok');
 }
+
+{
+  const { upsertLiveCard, hasLiveCard } = await import('../out/codeCard.js');
+  const { buildOverlay } = await import('../out/overlay.js');
+  const { emptyDocument } = await import('../out/model.js');
+  const uri = 'file:///a.ts';
+  let doc = upsertLiveCard(emptyDocument(), { code: 'one\ntwo\nthree', file: 'a.ts', startLine: 1, uri });
+  if (!hasLiveCard(doc, uri) || !doc.elements.every((e) => e.locked)) throw new Error('live card should exist and be locked');
+  const codeText = () => doc.elements.find((e) => String(e.id).startsWith('code_text'));
+  const origin = { x: codeText().x, y: codeText().y };
+  const stroke = { type: 'freedraw', id: 'd1', x: origin.x + 8.68 * 4, y: origin.y + 17.5 * 2, width: 20, height: 10, points: [[0, 0], [20, 10]], groupIds: [], strokeColor: '#1e1e1e', strokeWidth: 2, isDeleted: false };
+  doc = { ...doc, elements: [...doc.elements, stroke] };
+  const before = buildOverlay(doc, uri, { charWidth: 8.68, lineHeight: 17.5 });
+  if (!before || before.line !== 1 || !before.svg.includes('#ffd900')) throw new Error('overlay wrong: ' + JSON.stringify(before));
+  doc = upsertLiveCard(doc, { code: 'one\ntwo\nthree\nfour\nfive', file: 'a.ts', startLine: 1, uri });
+  if (doc.elements.filter((e) => e.customData?.drawper === 'code').length !== 1) throw new Error('refresh duplicated the card');
+  if (!doc.elements.some((e) => e.id === 'd1')) throw new Error('refresh dropped the drawing');
+  if (!doc.elements.find((e) => e.type === 'text' && e.text === 'one\ntwo\nthree\nfour\nfive')) throw new Error('refresh did not update the code');
+  const after = buildOverlay(doc, uri, { charWidth: 8.68, lineHeight: 17.5 });
+  if (after.line !== before.line || after.left !== before.left) throw new Error('drawing moved after refresh');
+  if (buildOverlay(emptyDocument(), uri, { charWidth: 8, lineHeight: 17 })) throw new Error('empty canvas should have no overlay');
+  console.log('codegen live card + overlay ok');
+}
