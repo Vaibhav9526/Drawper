@@ -134,3 +134,7 @@ body { font-family: var(--vscode-font-family); font-size: 12px; color: var(--vsc
 /* Excalidraw's narrow layout stretches its bottom bar across the canvas; keep it a small pill in the corner. */
 .excalidraw.excalidraw--mobile .App-bottom-bar { width: fit-content; max-width: calc(100% - 24px); left: 12px; right: auto; }
 .excalidraw.excalidraw--mobile .App-bottom-bar > .Island { width: fit-content; max-width: 100%; }
+
+/* zoom and undo/redo live at the top, next to the menu button */
+.excalidraw .layer-ui__wrapper__footer-left { position: fixed; top: 12px; left: 64px; bottom: auto; z-index: 5; }
+.excalidraw.excalidraw--mobile .App-bottom-bar { position: absolute; top: 12px; bottom: auto; left: 12px; }
