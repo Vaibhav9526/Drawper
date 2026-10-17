@@ -1,0 +1,22 @@
+name: Publish
+
+# Runs when a version tag such as v0.1.0 is pushed. Needs a VSCE_PAT repository secret
+# (Azure DevOps token with Marketplace > Manage scope).
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx @vscode/vsce publish
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
