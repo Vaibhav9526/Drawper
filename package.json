@@ -41,6 +41,16 @@
         "command": "drawper.convertSchema",
         "title": "Drawper: Convert Schema To…",
         "icon": "media/brand/logo.svg"
+      },
+      {
+        "command": "drawper.addToCanvas",
+        "title": "Drawper: Add Selected Code to Canvas",
+        "icon": "media/brand/logo.svg"
+      },
+      {
+        "command": "drawper.annotateCode",
+        "title": "Drawper: Annotate This Code",
+        "icon": "media/brand/logo.svg"
       }
     ],
     "customEditors": [
@@ -103,6 +113,16 @@
           "command": "drawper.convertSchema",
           "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
           "group": "navigation@10"
+        },
+        {
+          "command": "drawper.addToCanvas",
+          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@11"
+        },
+        {
+          "command": "drawper.annotateCode",
+          "when": "resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@12"
         }
       ]
     }

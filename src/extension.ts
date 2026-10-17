@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { generate, Target } from './codegen';
+import { CodeSnippet, addCodeCard } from './codeCard';
 import { DprDocument, docFromTables, emptyDocument, parseDocument } from './model';
 import { ParsedSchema, WorkspaceTable, mergeSchemas, parseSchema, relatedTo } from './schemaParsers';
 
@@ -70,6 +71,8 @@ function serial(webview: vscode.Webview, fn: (msg: any) => Promise<void>) {
   });
 }
 
+let activeCanvas: vscode.Uri | undefined;
+
 class DrawperEditor implements vscode.CustomTextEditorProvider {
   constructor(private readonly ctx: vscode.ExtensionContext) {}
 
@@ -93,7 +96,13 @@ class DrawperEditor implements vscode.CustomTextEditorProvider {
     const sub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() === document.uri.toString()) push();
     });
-    panel.onDidDispose(() => sub.dispose());
+    activeCanvas = document.uri;
+    const focus = panel.onDidChangeViewState((e) => { if (e.webviewPanel.active) activeCanvas = document.uri; });
+    panel.onDidDispose(() => {
+      sub.dispose();
+      focus.dispose();
+      if (activeCanvas?.toString() === document.uri.toString()) activeCanvas = undefined;
+    });
 
     serial(panel.webview, async (msg) => {
       if (msg.type === 'ready') return push();
@@ -257,6 +266,68 @@ async function convertSchema(target?: vscode.Uri) {
   await emit(docFromTables(tables), pick.target, path.join(path.dirname(uri.fsPath), `${stem}-converted`));
 }
 
+function snippetFromEditor(editor: vscode.TextEditor): CodeSnippet {
+  const { document, selection } = editor;
+  let range: vscode.Range = selection;
+  if (selection.isEmpty) {
+    const view = editor.visibleRanges[0] ?? new vscode.Range(0, 0, Math.min(document.lineCount - 1, 39), 0);
+    range = new vscode.Range(view.start.line, 0, Math.min(view.end.line, view.start.line + 39), document.lineAt(Math.min(view.end.line, view.start.line + 39)).text.length);
+  }
+  const endLine = range.end.character === 0 && range.end.line > range.start.line ? range.end.line - 1 : range.end.line;
+  const code = document.getText(new vscode.Range(range.start.line, 0, endLine, document.lineAt(endLine).text.length));
+  return { code, file: vscode.workspace.asRelativePath(document.uri), startLine: range.start.line + 1, language: document.languageId };
+}
+
+async function addSnippetTo(target: vscode.Uri, snippet: CodeSnippet) {
+  const document = await vscode.workspace.openTextDocument(target);
+  let doc: DprDocument;
+  try { doc = parseDocument(document.getText()); } catch { doc = emptyDocument(); }
+  const edit = new vscode.WorkspaceEdit();
+  edit.replace(target, new vscode.Range(0, 0, document.lineCount, 0), JSON.stringify(addCodeCard(doc, snippet), null, 2));
+  await vscode.workspace.applyEdit(edit);
+  await document.save();
+  await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
+}
+
+async function pickCanvas(): Promise<vscode.Uri | undefined> {
+  if (activeCanvas) return activeCanvas;
+  const found = await vscode.workspace.findFiles('**/*.dpr', '**/node_modules/**', 50);
+  const pick = await vscode.window.showQuickPick(
+    [{ label: '$(add) New canvas', uri: undefined as vscode.Uri | undefined }, ...found.map((u) => ({ label: vscode.workspace.asRelativePath(u), uri: u as vscode.Uri | undefined }))],
+    { placeHolder: 'Add this code to which Drawper canvas?' },
+  );
+  if (!pick) return undefined;
+  if (pick.uri) return pick.uri;
+  const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (!folder) return void vscode.window.showErrorMessage('Drawper: open a folder first.');
+  let n = 1;
+  while (await exists(vscode.Uri.joinPath(folder, `sketch-${n}.dpr`))) n++;
+  const uri = vscode.Uri.joinPath(folder, `sketch-${n}.dpr`);
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(emptyDocument(), null, 2)));
+  return uri;
+}
+
+async function addToCanvas() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.fileName.endsWith('.dpr')) return void vscode.window.showWarningMessage('Drawper: select some code in a file first.');
+  const snippet = snippetFromEditor(editor);
+  if (!snippet.code.trim()) return void vscode.window.showWarningMessage('Drawper: nothing to add, the selection is empty.');
+  const target = await pickCanvas();
+  if (target) await addSnippetTo(target, snippet);
+}
+
+/** VS Code has no API to draw over its text editor, so the code is placed on a sidecar canvas opened beside it. */
+async function annotateCode() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.uri.scheme !== 'file' || editor.document.fileName.endsWith('.dpr')) return void vscode.window.showWarningMessage('Drawper: open a source file first.');
+  const snippet = snippetFromEditor(editor);
+  if (!snippet.code.trim()) return void vscode.window.showWarningMessage('Drawper: nothing to annotate, the selection is empty.');
+  const source = editor.document.uri.fsPath;
+  const sidecar = vscode.Uri.file(path.join(path.dirname(source), `${path.basename(source)}.annotations.dpr`));
+  if (!(await exists(sidecar))) await vscode.workspace.fs.writeFile(sidecar, Buffer.from(JSON.stringify(emptyDocument(), null, 2)));
+  await addSnippetTo(sidecar, snippet);
+}
+
 async function newDrawing() {
   const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
   if (!folder) return void vscode.window.showErrorMessage('Drawper: open a folder first.');
@@ -291,6 +362,8 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.workspace.onDidCloseTextDocument((d) => schemaCache.delete(d.uri.toString())),
     vscode.commands.registerCommand('drawper.open', openDrawing),
     vscode.commands.registerCommand('drawper.new', newDrawing),
+    vscode.commands.registerCommand('drawper.addToCanvas', addToCanvas),
+    vscode.commands.registerCommand('drawper.annotateCode', annotateCode),
     vscode.commands.registerCommand('drawper.convertSchema', (uri?: vscode.Uri) => convertSchema(uri)),
     vscode.commands.registerCommand('drawper.viewSchema', (uri?: vscode.Uri, focus?: string) => viewSchema(ctx, uri, focus)),
   );

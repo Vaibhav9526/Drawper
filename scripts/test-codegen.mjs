@@ -53,3 +53,17 @@ console.log('codegen ok');
 // Prisma queries use the client delegate name (model name, lower camel), not the table name.
 assert.match(generate(doc, 'queries').find((f) => f.path === 'queries.prisma.ts').content, /prisma\.post\.findMany\(\{ include: \{ author: true \} \}\)/);
 console.log('codegen queries ok');
+
+{
+  const { addCodeCard } = await import('../out/codeCard.js');
+  const { emptyDocument } = await import('../out/model.js');
+  let doc = addCodeCard(emptyDocument(), { code: 'const a = 1;\nconst b = 2;\n', file: 'src/x.ts', startLine: 9 });
+  const texts = doc.elements.filter((e) => e.type === 'text').map((e) => e.text);
+  if (!texts.includes('src/x.ts:9-10') || !texts.includes('9\n10') || !texts.includes('const a = 1;\nconst b = 2;')) throw new Error('code card content wrong: ' + JSON.stringify(texts));
+  const before = doc.elements.length;
+  doc = addCodeCard(doc, { code: 'x', file: 'y.ts', startLine: 1 });
+  const card = doc.elements.filter((e) => e.customData?.drawper === 'code');
+  if (card.length !== 2 || card[1].y <= card[0].y + card[0].height) throw new Error('second card overlaps first');
+  if (doc.elements.length !== before + 5) throw new Error('card should be 5 elements');
+  console.log('codegen code card ok');
+}
