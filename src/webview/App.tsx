@@ -5,9 +5,11 @@ import '@excalidraw/excalidraw/index.css';
 import './panel.css';
 import { Logo } from './brand';
 import { Panel } from './Panel';
+import { RotateHandle } from './RotateHandle';
 import { buildSchemaScene } from './schemaScene';
 import { insertSvgMarkup } from './svgInsert';
 import { vscode } from './vscode';
+import { rotationActive } from './rotation';
 
 declare global {
   interface Window { DRAWPER_MODE?: 'editor' | 'viewer'; DRAWPER_TITLE?: string; DRAWPER_DOC?: any }
@@ -73,7 +75,7 @@ export function App() {
     dimsTimer.current = window.setTimeout(async () => {
       const a = apiRef.current;
       if (!a) return;
-      if (a.getAppState().cursorButton === 'down') return refreshDims();
+      if (a.getAppState().cursorButton === 'down' || rotationActive()) return refreshDims();
       await Promise.all([...document.fonts].filter((f) => ['Cascadia', 'Nunito'].includes(f.family.replace(/"/g, ''))).map((f) => f.load().catch(() => f)));
       const all: any[] = a.getSceneElementsIncludingDeleted();
       const ctx = document.createElement('canvas').getContext('2d')!;
@@ -273,6 +275,7 @@ export function App() {
           {!viewer && <button onClick={() => setPanelOpen((o) => !o)}>{panelOpen ? 'Hide' : 'Show'} panels</button>}
         </div>
       </div>
+      {!viewer && api && <RotateHandle api={api} />}
       {panelOpen && !viewer && api && <div className="drawper-resizer" onPointerDown={startResize} role="separator" aria-orientation="vertical" />}
       {panelOpen && !viewer && api && <Panel api={api} elements={elements.current} selection={selection} flush={flush} />}
     </div>

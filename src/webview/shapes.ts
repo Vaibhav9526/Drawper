@@ -1,5 +1,6 @@
 import { convertToExcalidrawElements } from '@excalidraw/excalidraw';
 import { iconFile } from './icons';
+import { rotateShapeParts } from './rotation';
 
 export type Column = { name: string; type: string; pk?: boolean; nullable?: boolean; unique?: boolean; ref?: string };
 export type ServiceData = { drawper: 'service'; kind: string; name: string; tech?: string; icon?: string };
@@ -104,16 +105,18 @@ export function updateShape(all: readonly any[], rectId: string, data: ShapeData
   if (!rect) return [...all];
   const { skeleton, tags } = shapeSkeleton(rectId, rect.x, rect.y, data);
   const groupId = rect.groupIds?.[0] ?? uid();
-  const fresh = applyTags(convertToExcalidrawElements(skeleton, KEEP_IDS) as any[], tags, groupId).map((e) => {
+  // Rebuilds start from a flat skeleton, so carry the user's rotation back onto the fresh parts.
+  const fresh = rotateShapeParts(applyTags(convertToExcalidrawElements(skeleton, KEEP_IDS) as any[], tags, groupId), rect.angle ?? 0, rect);
+  const bumped = fresh.map((e) => {
     const old = all.find((o) => o.id === e.id);
     return { ...e, version: (old?.version ?? 0) + 1, versionNonce: nonce(), seed: old?.seed ?? e.seed, boundElements: e.id === rectId ? old?.boundElements ?? null : e.boundElements };
   });
   const isPart = (e: any) => e.customData?.of === rectId;
   const out: any[] = [];
   for (const e of all) {
-    if (e.id === rectId) out.push(...fresh);
-    else if (isPart(e) && !fresh.some((f) => f.id === e.id)) out.push({ ...e, isDeleted: true, version: e.version + 1, versionNonce: nonce() });
-    else if (!fresh.some((f) => f.id === e.id)) out.push(e);
+    if (e.id === rectId) out.push(...bumped);
+    else if (isPart(e) && !bumped.some((f) => f.id === e.id)) out.push({ ...e, isDeleted: true, version: e.version + 1, versionNonce: nonce() });
+    else if (!bumped.some((f) => f.id === e.id)) out.push(e);
   }
   return out;
 }
