@@ -51,6 +51,7 @@
 - **Relation queries.** One click writes ready-to-run SQL joins plus Drizzle and Prisma relation queries for every relation.
 - **Convert code from the IDE.** Turn an existing schema file into another format without opening the canvas. See [Convert code](#convert-code-from-your-ide).
 - **Schema viewer for existing code.** A CodeLens appears above schema definitions: **View in Drawper**. It shows the file's tables plus related tables from other files (foreign keys are followed across imports), and a **Whole app** toggle shows every schema in the workspace. "Go to" jumps to the right file.
+- **Code on the canvas.** Select code, right-click and choose **Drawper: Add Selected Code to Canvas** to drop it onto a canvas as a card with line numbers. **Drawper: Annotate This Code** puts it on a sidecar `<file>.annotations.dpr` opened beside the editor, ready for arrows and notes. Paste screenshots with `Ctrl+V` straight onto the canvas. (VS Code has no API to draw on top of its text editor, so annotations live next to the code.)
 - **Icons and SVG.** Built-in icon library, SVG import, and paste SVG markup straight onto the canvas.
 - **Resizable side panel.** Drag its left edge; the width is remembered.
 - **Plain JSON files.** Drawings are saved as `.dpr` and diff cleanly.
