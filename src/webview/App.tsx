@@ -1,6 +1,6 @@
 import type * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CaptureUpdateAction, Excalidraw, MainMenu, getSceneVersion, restoreElements } from '@excalidraw/excalidraw';
+import { CaptureUpdateAction, Excalidraw as Board, MainMenu, getSceneVersion, restoreElements } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import './panel.css';
 import { Logo } from './brand';
@@ -241,7 +241,7 @@ export function App() {
   return (
     <div className="drawper-root" style={{ '--panel-w': `${panelWidth}px` } as React.CSSProperties}>
       <div className="drawper-canvas">
-        <Excalidraw
+        <Board
           excalidrawAPI={setApi}
           initialData={{
             elements: doc.elements,
@@ -263,7 +263,7 @@ export function App() {
             <MainMenu.DefaultItems.ClearCanvas />
             <MainMenu.DefaultItems.ChangeCanvasBackground />
           </MainMenu>
-        </Excalidraw>
+        </Board>
         <div className="drawper-top">
           <span className="brand"><Logo size={18} /><span className="lbl">Drawper</span></span>
           {viewer && <span className="chip" title={`${meta.source} · ${meta.dialect.join(' + ')}`}>{meta.tables} tables</span>}

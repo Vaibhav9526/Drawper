@@ -1,4 +1,4 @@
-import { convertToExcalidrawElements } from '@excalidraw/excalidraw';
+import { convertToExcalidrawElements as toElements } from '@excalidraw/excalidraw';
 import { Column, TableData, applyTags, shapeSkeleton } from './shapes';
 
 export type SchemaTable = { name: string; columns: Column[] };
@@ -86,7 +86,7 @@ export function buildSchemaScene(tables: SchemaTable[], prev: Map<string, { x: n
     });
   });
 
-  const converted = convertToExcalidrawElements(skeletons as any, { regenerateIds: false }) as any[];
+  const converted = toElements(skeletons as any, { regenerateIds: false }) as any[];
   const bind = (id: string) => ({ elementId: id, focus: 0, gap: 4 });
   const links = new Map<string, { id: string; type: 'arrow' }[]>();
   for (const a of arrows) for (const r of [a.from, a.to]) links.set(r, [...(links.get(r) ?? []), { id: a.id, type: 'arrow' }]);

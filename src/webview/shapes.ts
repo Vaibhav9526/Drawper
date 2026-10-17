@@ -1,4 +1,4 @@
-import { convertToExcalidrawElements } from '@excalidraw/excalidraw';
+import { convertToExcalidrawElements as toElements } from '@excalidraw/excalidraw';
 import { iconFile } from './icons';
 
 export type Column = { name: string; type: string; pk?: boolean; nullable?: boolean; unique?: boolean; ref?: string };
@@ -35,14 +35,14 @@ export function tableRows(d: TableData): string {
   return rows.map((r) => `${r[0].padEnd(w0)}  ${r[1].padEnd(w1)}  ${r[2]}`.trimEnd()).join('\n');
 }
 
-type Skel = NonNullable<Parameters<typeof convertToExcalidrawElements>[0]>[number];
+type Skel = NonNullable<Parameters<typeof toElements>[0]>[number];
 type Tags = Record<string, unknown>;
 
 const MONO_ADVANCE = 0.62;
 const KEEP_IDS = { regenerateIds: false };
 
 function measure(text: string, fontSize: number, fontFamily: number): { width: number; height: number } {
-  const [t] = convertToExcalidrawElements([{ type: 'text', x: 0, y: 0, text, fontSize, fontFamily } as Skel]) as any[];
+  const [t] = toElements([{ type: 'text', x: 0, y: 0, text, fontSize, fontFamily } as Skel]) as any[];
   if (fontFamily !== MONO) return { width: t.width * 1.08, height: t.height };
   const widest = Math.max(...text.split('\n').map((l) => l.length));
   return { width: Math.max(t.width, widest * fontSize * MONO_ADVANCE), height: t.height };
@@ -96,7 +96,7 @@ export function applyTags(elements: any[], tags: Tags, groupId: string): any[] {
 export function createShape(data: ShapeData, x: number, y: number): any[] {
   const id = uid();
   const { skeleton, tags } = shapeSkeleton(id, x, y, data);
-  return applyTags(convertToExcalidrawElements(skeleton, KEEP_IDS) as any[], tags, uid());
+  return applyTags(toElements(skeleton, KEEP_IDS) as any[], tags, uid());
 }
 
 export function updateShape(all: readonly any[], rectId: string, data: ShapeData): any[] {
@@ -104,7 +104,7 @@ export function updateShape(all: readonly any[], rectId: string, data: ShapeData
   if (!rect) return [...all];
   const { skeleton, tags } = shapeSkeleton(rectId, rect.x, rect.y, data);
   const groupId = rect.groupIds?.[0] ?? uid();
-  const fresh = applyTags(convertToExcalidrawElements(skeleton, KEEP_IDS) as any[], tags, groupId).map((e) => {
+  const fresh = applyTags(toElements(skeleton, KEEP_IDS) as any[], tags, groupId).map((e) => {
     const old = all.find((o) => o.id === e.id);
     return { ...e, version: (old?.version ?? 0) + 1, versionNonce: nonce(), seed: old?.seed ?? e.seed, boundElements: e.id === rectId ? old?.boundElements ?? null : e.boundElements };
   });

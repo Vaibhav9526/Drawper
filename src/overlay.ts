@@ -25,7 +25,7 @@ const PAD = 8;
 const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const n = (v: number) => Math.round(v * 10) / 10;
 
-/** Excalidraw stores near-black ink that its dark theme flips to light; the editor needs the same flip. */
+/** The canvas stores near-black ink that its dark theme flips to light; the editor needs the same flip. */
 function ink(color: string | undefined): string {
   const hex = /^#([0-9a-f]{6})$/i.exec(color ?? '')?.[1];
   if (!hex) return color && color !== 'transparent' ? color : 'none';
