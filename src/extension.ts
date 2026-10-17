@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { generate, Target } from './codegen';
 import { CodeSnippet, addCodeCard, upsertLiveCard } from './codeCard';
+import { registerDrawMode } from './drawMode';
 import { registerLiveCode, sidecarUri, wholeFile, writeCanvas } from './liveCode';
 import { DprDocument, docFromTables, emptyDocument, parseDocument } from './model';
 import { ParsedSchema, WorkspaceTable, mergeSchemas, parseSchema, relatedTo } from './schemaParsers';
@@ -197,7 +198,7 @@ class SelectionLenses implements vscode.CodeLensProvider {
     if (!editor || editor.document !== document || document.fileName.endsWith('.dpr') || editor.selection.isEmpty) return [];
     const range = new vscode.Range(editor.selection.start.line, 0, editor.selection.start.line, 0);
     return [
-      new vscode.CodeLens(range, { title: '$(pencil) Draw on this code', command: 'drawper.annotateCode', tooltip: 'Open a canvas beside this file with the selected code on it' }),
+      new vscode.CodeLens(range, { title: '$(pencil) Draw on this code', command: 'drawper.toggleDrawMode', tooltip: 'Turn on drawing, then drag the mouse over your code' }),
       new vscode.CodeLens(range, { title: '$(add) Add to canvas', command: 'drawper.addToCanvas', tooltip: 'Add the selected code to a Drawper canvas' }),
     ];
   }
@@ -206,8 +207,12 @@ class SelectionLenses implements vscode.CodeLensProvider {
 function statusButtons(): vscode.Disposable {
   const draw = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   draw.text = '$(pencil) Draw';
-  draw.tooltip = 'Drawper: draw on this code (uses the selection, or the visible lines)';
-  draw.command = 'drawper.annotateCode';
+  draw.tooltip = 'Drawper: draw on this editor. Turn it on, then drag the mouse over your code.';
+  draw.command = 'drawper.toggleDrawMode';
+  const canvas = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
+  canvas.text = '$(window) Canvas';
+  canvas.tooltip = 'Drawper: open a canvas beside this file to draw on its code';
+  canvas.command = 'drawper.annotateCode';
   const add = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
   add.text = '$(add) Add to canvas';
   add.tooltip = 'Drawper: add the selected code to a canvas';
@@ -215,11 +220,11 @@ function statusButtons(): vscode.Disposable {
   const update = () => {
     const editor = vscode.window.activeTextEditor;
     const source = !!editor && editor.document.uri.scheme === 'file' && !editor.document.fileName.endsWith('.dpr');
-    if (source) draw.show(); else draw.hide();
+    if (source) { draw.show(); canvas.show(); } else { draw.hide(); canvas.hide(); }
     if (source && !editor.selection.isEmpty) add.show(); else add.hide();
   };
   update();
-  return vscode.Disposable.from(draw, add, vscode.window.onDidChangeActiveTextEditor(update), vscode.window.onDidChangeTextEditorSelection(update));
+  return vscode.Disposable.from(draw, canvas, add, vscode.window.onDidChangeActiveTextEditor(update), vscode.window.onDidChangeTextEditorSelection(update));
 }
 
 const viewers = new Map<string, { panel: vscode.WebviewPanel; send: (focus?: string) => Promise<void> }>();
@@ -396,6 +401,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(
     statusButtons(),
     registerLiveCode(),
+    registerDrawMode(),
     vscode.languages.registerCodeLensProvider({ scheme: 'file' }, selectionLenses),
     vscode.window.onDidChangeTextEditorSelection(() => selectionLenses.refresh()),
     vscode.window.registerCustomEditorProvider(VIEW_TYPE, new DrawperEditor(ctx), { webviewOptions: { retainContextWhenHidden: true } }),
