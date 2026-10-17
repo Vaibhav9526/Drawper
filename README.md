@@ -12,7 +12,7 @@
 <p align="center">
   <img alt="VS Code" src="https://img.shields.io/badge/VS%20Code-%5E1.85-2E2936?logo=visualstudiocode&logoColor=FFD900" />
   <img alt="File type" src="https://img.shields.io/badge/file-.dpr-FFD900?labelColor=2E2936" />
-  <img alt="Status" src="https://img.shields.io/badge/status-0.0.1-EC5451?labelColor=2E2936" />
+  <img alt="Status" src="https://img.shields.io/badge/status-0.1.0-EC5451?labelColor=2E2936" />
 </p>
 
 ---
@@ -133,7 +133,7 @@ To build an installable package:
 
 ```bash
 npm run package   # produces drawper-<version>.vsix
-code --install-extension drawper-0.0.1.vsix
+code --install-extension drawper-0.1.0.vsix
 ```
 
 ## Usage
