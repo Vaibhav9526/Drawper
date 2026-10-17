@@ -127,3 +127,10 @@ body { font-family: var(--vscode-font-family); font-size: 12px; color: var(--vsc
 @container canvas (max-width: 560px) { .drawper-top .brand, .drawper-top .chip { display: none; } }
 @container canvas (max-width: 560px) { .drawper-top { right: 58px; } }
 .excalidraw .App-top-bar { top: auto !important; bottom: 60px !important; }
+
+.drawper-panel header .close { margin-left: auto; width: 26px; height: 26px; padding: 0; line-height: 1; border-radius: 8px; border-color: transparent; background: transparent; opacity: .7; font-size: 13px; }
+.drawper-panel header .close:hover:not(:disabled) { opacity: 1; background: var(--accent-soft); }
+
+/* Excalidraw's narrow layout stretches its bottom bar across the canvas; keep it a small pill in the corner. */
+.excalidraw.excalidraw--mobile .App-bottom-bar { width: fit-content; max-width: calc(100% - 24px); left: 12px; right: auto; }
+.excalidraw.excalidraw--mobile .App-bottom-bar > .Island { width: fit-content; max-width: 100%; }

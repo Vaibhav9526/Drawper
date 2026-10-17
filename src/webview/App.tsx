@@ -15,6 +15,12 @@ declare global {
 
 const FONT_NAMES: Record<number, string> = { 1: 'Virgil', 2: 'Helvetica', 3: 'Cascadia', 5: 'Excalifont', 6: 'Nunito', 7: '"Lilita One"', 8: '"Comic Shanns"' };
 const viewer = window.DRAWPER_MODE === 'viewer';
+
+/** A canvas made for drawing on code has a code card and no architecture or schema, so the side panels only get in the way. */
+const isCodeCanvas = (doc: any) => {
+  const els: any[] = (doc?.elements ?? []).filter((e: any) => !e.isDeleted);
+  return els.some((e) => e.customData?.drawper === 'code') && !els.some((e) => e.customData?.drawper === 'table' || e.customData?.drawper === 'service');
+};
 const theme = () => (document.body.classList.contains('vscode-light') ? 'light' : 'dark');
 const PAPER = '#fbf6ee';
 const NEVER = { captureUpdate: CaptureUpdateAction.NEVER };
@@ -47,7 +53,7 @@ export function App() {
   const [api, setApi] = useState<any>(null);
   const [, setTick] = useState(0);
   const [selection, setSelection] = useState('');
-  const [panelOpen, setPanelOpen] = useState(!viewer);
+  const [panelOpen, setPanelOpen] = useState(() => !viewer && !isCodeCanvas(window.DRAWPER_DOC));
   const [mode, setMode] = useState<'dark' | 'light'>(theme());
   const [meta, setMeta] = useState({ source: window.DRAWPER_TITLE ?? '', dialect: [] as string[], tables: 0 });
   const elements = useRef<readonly any[]>(doc?.elements ?? []);
@@ -119,7 +125,7 @@ export function App() {
   }, [refreshDims]);
 
   useEffect(() => {
-    if (!viewer || !api) return;
+    if (!api || !(viewer || isCodeCanvas({ elements: api.getSceneElements() }))) return;
     const host = document.querySelector('.drawper-canvas');
     if (!host) return;
     let t = 0;
@@ -274,7 +280,7 @@ export function App() {
         </div>
       </div>
       {panelOpen && !viewer && api && <div className="drawper-resizer" onPointerDown={startResize} role="separator" aria-orientation="vertical" />}
-      {panelOpen && !viewer && api && <Panel api={api} elements={elements.current} selection={selection} flush={flush} />}
+      {panelOpen && !viewer && api && <Panel api={api} elements={elements.current} selection={selection} flush={flush} onClose={() => setPanelOpen(false)} />}
     </div>
   );
 }
