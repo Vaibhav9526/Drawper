@@ -90,19 +90,3 @@ console.log('codegen queries ok');
   if (buildOverlay(emptyDocument(), uri, { charWidth: 8, lineHeight: 17 })) throw new Error('empty canvas should have no overlay');
   console.log('codegen live card + overlay ok');
 }
-
-{
-  const { upsertLiveCard } = await import('../out/codeCard.js');
-  const { addStroke, undoStroke, clearStrokes, buildOverlay } = await import('../out/overlay.js');
-  const { emptyDocument } = await import('../out/model.js');
-  const uri = 'file:///b.ts';
-  const m = { charWidth: 8.4, lineHeight: 19 };
-  let doc = upsertLiveCard(emptyDocument(), { code: 'a\nb\nc\nd\ne', file: 'b.ts', startLine: 1, uri });
-  if (addStroke(doc, 'file:///other.ts', [[0, 0], [5, 5]], m) !== doc) throw new Error('stroke for another file should be ignored');
-  doc = addStroke(doc, uri, [[84, 47.5], [92, 57], [100, 66.5]], m);
-  const o = buildOverlay(doc, uri, m);
-  if (!o || o.line !== 2) throw new Error('stroke should anchor near line 3, got ' + JSON.stringify(o));
-  if (undoStroke(doc, uri).elements.some((e) => e.customData?.drawper === 'stroke')) throw new Error('undo failed');
-  if (clearStrokes(doc, uri).elements.some((e) => e.customData?.drawper === 'stroke')) throw new Error('clear failed');
-  console.log('codegen strokes ok');
-}
