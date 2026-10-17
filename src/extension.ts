@@ -3,6 +3,7 @@ import * as path from 'path';
 import { generate, Target } from './codegen';
 import { CodeSnippet, addCodeCard, upsertLiveCard } from './codeCard';
 import { registerDrawMode } from './drawMode';
+import { registerScreenDraw } from './screenDraw';
 import { registerLiveCode, sidecarUri, wholeFile, writeCanvas } from './liveCode';
 import { DprDocument, docFromTables, emptyDocument, parseDocument } from './model';
 import { ParsedSchema, WorkspaceTable, mergeSchemas, parseSchema, relatedTo } from './schemaParsers';
@@ -198,7 +199,7 @@ class SelectionLenses implements vscode.CodeLensProvider {
     if (!editor || editor.document !== document || document.fileName.endsWith('.dpr') || editor.selection.isEmpty) return [];
     const range = new vscode.Range(editor.selection.start.line, 0, editor.selection.start.line, 0);
     return [
-      new vscode.CodeLens(range, { title: '$(pencil) Draw on this code', command: 'drawper.toggleDrawMode', tooltip: 'Turn on drawing, then drag the mouse over your code' }),
+      new vscode.CodeLens(range, { title: '$(pencil) Draw on this code', command: 'drawper.screenDraw', tooltip: 'Draw on the editor with the mouse (Esc to finish)' }),
       new vscode.CodeLens(range, { title: '$(add) Add to canvas', command: 'drawper.addToCanvas', tooltip: 'Add the selected code to a Drawper canvas' }),
     ];
   }
@@ -207,8 +208,8 @@ class SelectionLenses implements vscode.CodeLensProvider {
 function statusButtons(): vscode.Disposable {
   const draw = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   draw.text = '$(pencil) Draw';
-  draw.tooltip = 'Drawper: draw on this editor. Turn it on, then drag the mouse over your code.';
-  draw.command = 'drawper.toggleDrawMode';
+  draw.tooltip = 'Drawper: draw on the editor with the mouse (Esc to finish)';
+  draw.command = 'drawper.screenDraw';
   const canvas = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
   canvas.text = '$(window) Canvas';
   canvas.tooltip = 'Drawper: open a canvas beside this file to draw on its code';
@@ -402,6 +403,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     statusButtons(),
     registerLiveCode(),
     registerDrawMode(),
+    registerScreenDraw(ctx),
     vscode.languages.registerCodeLensProvider({ scheme: 'file' }, selectionLenses),
     vscode.window.onDidChangeTextEditorSelection(() => selectionLenses.refresh()),
     vscode.window.registerCustomEditorProvider(VIEW_TYPE, new DrawperEditor(ctx), { webviewOptions: { retainContextWhenHidden: true } }),
