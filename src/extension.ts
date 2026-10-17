@@ -185,6 +185,42 @@ async function appSchema(document: vscode.TextDocument): Promise<WorkspaceTable[
   return mergeSchemas([{ file: self, schema: schemaOf(document) }, ...others.filter((o): o is { file: string; schema: ParsedSchema } => !!o.schema?.tables.length)]);
 }
 
+/** A lens right above the selection so the draw and copy actions are where the eye already is. */
+class SelectionLenses implements vscode.CodeLensProvider {
+  private readonly changed = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses = this.changed.event;
+  refresh() { this.changed.fire(); }
+
+  provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== document || document.fileName.endsWith('.dpr') || editor.selection.isEmpty) return [];
+    const range = new vscode.Range(editor.selection.start.line, 0, editor.selection.start.line, 0);
+    return [
+      new vscode.CodeLens(range, { title: '$(pencil) Draw on this code', command: 'drawper.annotateCode', tooltip: 'Open a canvas beside this file with the selected code on it' }),
+      new vscode.CodeLens(range, { title: '$(add) Add to canvas', command: 'drawper.addToCanvas', tooltip: 'Add the selected code to a Drawper canvas' }),
+    ];
+  }
+}
+
+function statusButtons(): vscode.Disposable {
+  const draw = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  draw.text = '$(pencil) Draw';
+  draw.tooltip = 'Drawper: draw on this code (uses the selection, or the visible lines)';
+  draw.command = 'drawper.annotateCode';
+  const add = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  add.text = '$(add) Add to canvas';
+  add.tooltip = 'Drawper: add the selected code to a canvas';
+  add.command = 'drawper.addToCanvas';
+  const update = () => {
+    const editor = vscode.window.activeTextEditor;
+    const source = !!editor && editor.document.uri.scheme === 'file' && !editor.document.fileName.endsWith('.dpr');
+    if (source) draw.show(); else draw.hide();
+    if (source && !editor.selection.isEmpty) add.show(); else add.hide();
+  };
+  update();
+  return vscode.Disposable.from(draw, add, vscode.window.onDidChangeActiveTextEditor(update), vscode.window.onDidChangeTextEditorSelection(update));
+}
+
 const viewers = new Map<string, { panel: vscode.WebviewPanel; send: (focus?: string) => Promise<void> }>();
 
 async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, focus?: string) {
@@ -356,7 +392,11 @@ async function openDrawing() {
 }
 
 export function activate(ctx: vscode.ExtensionContext) {
+  const selectionLenses = new SelectionLenses();
   ctx.subscriptions.push(
+    statusButtons(),
+    vscode.languages.registerCodeLensProvider({ scheme: 'file' }, selectionLenses),
+    vscode.window.onDidChangeTextEditorSelection(() => selectionLenses.refresh()),
     vscode.window.registerCustomEditorProvider(VIEW_TYPE, new DrawperEditor(ctx), { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.languages.registerCodeLensProvider({ scheme: 'file', pattern: '**/*.{prisma,sql,ts,tsx,mts,cts,js,jsx,mjs,cjs,py}' }, new SchemaLenses()),
     vscode.workspace.onDidCloseTextDocument((d) => schemaCache.delete(d.uri.toString())),
