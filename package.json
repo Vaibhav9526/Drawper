@@ -45,12 +45,12 @@
       {
         "command": "drawper.addToCanvas",
         "title": "Drawper: Add Selected Code to Canvas",
-        "icon": "media/brand/logo.svg"
+        "icon": "$(add)"
       },
       {
         "command": "drawper.annotateCode",
-        "title": "Drawper: Annotate This Code",
-        "icon": "media/brand/logo.svg"
+        "title": "Drawper: Draw on This Code",
+        "icon": "$(pencil)"
       }
     ],
     "customEditors": [
@@ -85,6 +85,16 @@
         {
           "command": "drawper.open",
           "group": "navigation@0"
+        },
+        {
+          "command": "drawper.annotateCode",
+          "when": "resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@1"
+        },
+        {
+          "command": "drawper.addToCanvas",
+          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@2"
         }
       ],
       "explorer/context": [
