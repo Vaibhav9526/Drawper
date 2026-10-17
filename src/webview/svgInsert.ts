@@ -1,4 +1,4 @@
-import { convertToExcalidrawElements, CaptureUpdateAction } from '@excalidraw/excalidraw';
+import { convertToExcalidrawElements as toElements, CaptureUpdateAction } from '@excalidraw/excalidraw';
 import { IconFile, importedSvgFile } from './icons';
 
 export function viewCenter(api: any): [number, number] {
@@ -10,7 +10,7 @@ export function insertImage(api: any, file: IconFile, width = 64, height = 64) {
   api.addFiles([file]);
   const [cx, cy] = viewCenter(api);
   const k = 72 / Math.max(width, height);
-  const [img] = convertToExcalidrawElements([{ type: 'image', fileId: file.id, x: cx - (width * k) / 2, y: cy - (height * k) / 2, width: width * k, height: height * k, status: 'saved' } as any], { regenerateIds: true });
+  const [img] = toElements([{ type: 'image', fileId: file.id, x: cx - (width * k) / 2, y: cy - (height * k) / 2, width: width * k, height: height * k, status: 'saved' } as any], { regenerateIds: true });
   api.updateScene({ elements: [...api.getSceneElementsIncludingDeleted(), img], appState: { selectedElementIds: { [img.id]: true } }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
 }
 

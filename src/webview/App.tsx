@@ -1,8 +1,10 @@
 import type * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CaptureUpdateAction, Excalidraw, MainMenu, getSceneVersion, restoreElements } from '@excalidraw/excalidraw';
+import { CaptureUpdateAction, Excalidraw as Board, MainMenu, getSceneVersion, restoreElements } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import './panel.css';
+import { ThemePicker } from './ThemePicker';
+import { loadTheme, saveTheme, themeById, themeVars } from './themes';
 import { Logo } from './brand';
 import { Panel } from './Panel';
 import { buildSchemaScene } from './schemaScene';
@@ -54,6 +56,7 @@ export function App() {
   const [, setTick] = useState(0);
   const [selection, setSelection] = useState('');
   const [panelOpen, setPanelOpen] = useState(() => !viewer && !isCodeCanvas(window.DRAWPER_DOC));
+  const [panelTheme, setPanelTheme] = useState(loadTheme);
   const [mode, setMode] = useState<'dark' | 'light'>(theme());
   const [meta, setMeta] = useState({ source: window.DRAWPER_TITLE ?? '', dialect: [] as string[], tables: 0 });
   const elements = useRef<readonly any[]>(doc?.elements ?? []);
@@ -239,9 +242,9 @@ export function App() {
   if (!doc) return <div className="drawper-loading">{viewer ? 'Reading schema…' : 'Loading…'}</div>;
 
   return (
-    <div className="drawper-root" style={{ '--panel-w': `${panelWidth}px` } as React.CSSProperties}>
+    <div className="drawper-root" style={{ '--panel-w': `${panelWidth}px`, ...themeVars(panelTheme) } as React.CSSProperties}>
       <div className="drawper-canvas">
-        <Excalidraw
+        <Board
           excalidrawAPI={setApi}
           initialData={{
             elements: doc.elements,
@@ -263,10 +266,11 @@ export function App() {
             <MainMenu.DefaultItems.ClearCanvas />
             <MainMenu.DefaultItems.ChangeCanvasBackground />
           </MainMenu>
-        </Excalidraw>
+        </Board>
         <div className="drawper-top">
           <span className="brand"><Logo size={18} /><span className="lbl">Drawper</span></span>
           {viewer && <span className="chip" title={`${meta.source} · ${meta.dialect.join(' + ')}`}>{meta.tables} tables</span>}
+          {viewer && <ThemePicker value={panelTheme} onChange={(id) => { saveTheme(id); setPanelTheme(themeById(id)); }} />}
           {viewer && <button title="Fit all tables" onClick={() => apiRef.current?.scrollToContent(apiRef.current.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.9, animate: true })}>Fit</button>}
           {viewer && (
             <span className="seg" role="group" aria-label="Schema scope">
@@ -280,7 +284,7 @@ export function App() {
         </div>
       </div>
       {panelOpen && !viewer && api && <div className="drawper-resizer" onPointerDown={startResize} role="separator" aria-orientation="vertical" />}
-      {panelOpen && !viewer && api && <Panel api={api} elements={elements.current} selection={selection} flush={flush} onClose={() => setPanelOpen(false)} />}
+      {panelOpen && !viewer && api && <Panel api={api} elements={elements.current} selection={selection} flush={flush} onClose={() => setPanelOpen(false)} theme={panelTheme} onTheme={(id) => { saveTheme(id); setPanelTheme(themeById(id)); }} />}
     </div>
   );
 }
