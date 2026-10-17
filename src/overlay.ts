@@ -113,3 +113,41 @@ export function buildOverlay(doc: DprDocument, uri: string, m: OverlayMetrics): 
     line, top: Math.round(minY - line * m.lineHeight), left: Math.round(minX), width, height,
   };
 }
+
+const liveCodeOrigin = (doc: DprDocument, uri: string) => {
+  const live = doc.elements.filter((e) => !e.isDeleted);
+  const card = live.find((e) => e.customData?.drawper === 'code' && e.customData.live && e.customData.uri === uri);
+  return card && live.find((e) => e.groupIds?.[0] === card.groupIds[0] && String(e.id).startsWith('code_text'));
+};
+
+const isStroke = (e: any, uri: string) => e.customData?.drawper === 'stroke' && e.customData.uri === uri;
+
+/**
+ * Adds a stroke recorded in editor pixels (relative to the top-left of the first line's text) to a live code card,
+ * converting it to canvas coordinates so it shows on both the canvas and, through the overlay, the editor.
+ */
+export function addStroke(doc: DprDocument, uri: string, path: [number, number][], m: OverlayMetrics, color = '#ec5451'): DprDocument {
+  const origin = liveCodeOrigin(doc, uri);
+  if (!origin || path.length < 2) return doc;
+  const sx = m.charWidth / (FONT * CHAR);
+  const sy = m.lineHeight / (FONT * LINE);
+  const pts = path.map(([px, py]) => [origin.x + px / sx, origin.y + py / sy] as [number, number]);
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const [x, y] = pts[0];
+  const stroke = {
+    type: 'freedraw', id: `stroke_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, x, y,
+    width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), angle: 0, strokeColor: color, backgroundColor: 'transparent',
+    fillStyle: 'solid', strokeWidth: 2, strokeStyle: 'solid', roughness: 0, opacity: 100, groupIds: [], frameId: null, roundness: null,
+    seed: Math.floor(Math.random() * 2 ** 31), version: 1, versionNonce: Math.floor(Math.random() * 2 ** 31), isDeleted: false, boundElements: null,
+    updated: Date.now(), link: null, locked: false, points: pts.map(([px, py]) => [px - x, py - y]), pressures: [], simulatePressure: true, lastCommittedPoint: null,
+    customData: { drawper: 'stroke', uri },
+  };
+  return { ...doc, elements: [...doc.elements, stroke] };
+}
+
+export function undoStroke(doc: DprDocument, uri: string): DprDocument {
+  const last = [...doc.elements].reverse().find((e) => !e.isDeleted && isStroke(e, uri));
+  return last ? { ...doc, elements: doc.elements.filter((e) => e !== last) } : doc;
+}
+
+export const clearStrokes = (doc: DprDocument, uri: string): DprDocument => ({ ...doc, elements: doc.elements.filter((e) => !isStroke(e, uri)) });

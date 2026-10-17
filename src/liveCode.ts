@@ -3,7 +3,7 @@ import { CodeSnippet, hasLiveCard, upsertLiveCard } from './codeCard';
 import { DprDocument, emptyDocument, parseDocument } from './model';
 import { buildOverlay } from './overlay';
 
-const exists = (uri: vscode.Uri) => Promise.resolve(vscode.workspace.fs.stat(uri)).then(() => true, () => false);
+export const exists = (uri: vscode.Uri) => Promise.resolve(vscode.workspace.fs.stat(uri)).then(() => true, () => false);
 
 export const sidecarUri = (source: vscode.Uri) => vscode.Uri.file(`${source.fsPath}.annotations.dpr`);
 
@@ -24,7 +24,7 @@ export async function writeCanvas(target: vscode.Uri, change: (doc: DprDocument)
   await document.save();
 }
 
-async function readCanvas(side: vscode.Uri): Promise<DprDocument | undefined> {
+export async function readCanvas(side: vscode.Uri): Promise<DprDocument | undefined> {
   try {
     const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === side.toString());
     const text = open ? open.getText() : Buffer.from(await vscode.workspace.fs.readFile(side)).toString('utf8');
@@ -52,12 +52,12 @@ function followSources(): vscode.Disposable {
 
 const overlayEnabled = () => vscode.workspace.getConfiguration('drawper').get<boolean>('overlay.enabled', true);
 
-function editorMetrics() {
+export function editorMetrics() {
   const config = vscode.workspace.getConfiguration('editor');
   const fontSize = config.get<number>('fontSize', 14);
   const lineHeight = config.get<number>('lineHeight', 0);
   return {
-    charWidth: fontSize * 0.6,
+    charWidth: fontSize * vscode.workspace.getConfiguration('drawper').get<number>('overlay.charWidthRatio', 0.6),
     lineHeight: lineHeight >= 8 ? lineHeight : lineHeight > 0 ? lineHeight * fontSize : Math.round(fontSize * 1.35),
   };
 }

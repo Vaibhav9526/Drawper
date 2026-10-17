@@ -49,12 +49,25 @@
       },
       {
         "command": "drawper.annotateCode",
-        "title": "Drawper: Draw on This Code",
-        "icon": "media/brand/draw.svg"
+        "title": "Drawper: Open Canvas for This Code",
+        "icon": "media/brand/logo.svg"
       },
       {
         "command": "drawper.toggleOverlay",
         "title": "Drawper: Toggle Drawings Over Editor"
+      },
+      {
+        "command": "drawper.toggleDrawMode",
+        "title": "Drawper: Draw on This Editor",
+        "icon": "media/brand/draw.svg"
+      },
+      {
+        "command": "drawper.undoStroke",
+        "title": "Drawper: Undo Last Stroke"
+      },
+      {
+        "command": "drawper.clearDrawings",
+        "title": "Drawper: Clear Drawings on This File"
       }
     ],
     "customEditors": [
@@ -91,7 +104,7 @@
           "group": "navigation@0"
         },
         {
-          "command": "drawper.annotateCode",
+          "command": "drawper.toggleDrawMode",
           "when": "resourceScheme == file && resourceExtname != .dpr",
           "group": "navigation@1"
         },
@@ -99,6 +112,11 @@
           "command": "drawper.addToCanvas",
           "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
           "group": "navigation@2"
+        },
+        {
+          "command": "drawper.annotateCode",
+          "when": "resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@3"
         }
       ],
       "explorer/context": [
@@ -134,7 +152,7 @@
           "group": "navigation@11"
         },
         {
-          "command": "drawper.annotateCode",
+          "command": "drawper.toggleDrawMode",
           "when": "resourceScheme == file && resourceExtname != .dpr",
           "group": "navigation@12"
         }
@@ -147,6 +165,13 @@
           "type": "boolean",
           "default": true,
           "description": "Show drawings made on a code canvas over the matching text editor (display only)."
+        },
+        "drawper.overlay.charWidthRatio": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0.4,
+          "maximum": 0.8,
+          "description": "Width of one editor column as a fraction of the font size. Adjust if drawings drift sideways (Consolas is about 0.55, most other monospace fonts 0.6)."
         }
       }
     }
