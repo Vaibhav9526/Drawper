@@ -1,0 +1,1 @@
+npm run typecheck:webview && npm test
