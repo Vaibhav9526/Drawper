@@ -70,7 +70,10 @@ export function buildOverlay(doc: DprDocument, uri: string, m: OverlayMetrics): 
       return {
         box,
         svg: (dx, dy) => {
-          const d = pts.map((p, i) => `${i ? 'L' : 'M'}${n(p[0] - dx)} ${n(p[1] - dy)}`).join(' ');
+          const q = pts.map((p) => [p[0] - dx, p[1] - dy]);
+          const d = e.type === 'arrow' || q.length < 3
+            ? q.map((p, i) => `${i ? 'L' : 'M'}${n(p[0])} ${n(p[1])}`).join(' ')
+            : `M${n(q[0][0])} ${n(q[0][1])} ${q.slice(1, -1).map((p, i) => `Q${n(p[0])} ${n(p[1])} ${n((p[0] + q[i + 2][0]) / 2)} ${n((p[1] + q[i + 2][1]) / 2)}`).join(' ')} L${n(q[q.length - 1][0])} ${n(q[q.length - 1][1])}`;
           let head = '';
           if (e.type === 'arrow' && e.endArrowhead !== null && pts.length >= 2) {
             const [bx, by] = pts[pts.length - 2], [ex, ey] = pts[pts.length - 1];
@@ -109,7 +112,7 @@ export function buildOverlay(doc: DprDocument, uri: string, m: OverlayMetrics): 
   const width = Math.ceil(maxX - minX), height = Math.ceil(maxY - minY);
   const line = Math.max(0, Math.floor(minY / m.lineHeight));
   return {
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${items.map((i) => i.svg(minX, minY)).join('')}</svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><filter id="glow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#000" flood-opacity=".55"/></filter></defs><g filter="url(#glow)">${items.map((i) => i.svg(minX, minY)).join('')}</g></svg>`,
     line, top: Math.round(minY - line * m.lineHeight), left: Math.round(minX), width, height,
   };
 }

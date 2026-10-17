@@ -30,12 +30,13 @@ export function registerDrawMode(): vscode.Disposable {
 
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
   status.command = 'drawper.toggleDrawMode';
-  status.text = '$(pencil) Drawing: drag over the code (click to stop)';
+  status.text = '$(pencil) Drawing, click to finish';
+  status.tooltip = 'Drawper: hold the mouse button and drag over your code to draw';
   status.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
   const undo = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97);
-  undo.text = '$(discard) Undo stroke';
+  undo.text = '$(discard) Undo';
   undo.command = 'drawper.undoStroke';
-  undo.tooltip = 'Drawper: remove the last stroke';
+  undo.tooltip = 'Drawper: undo the last stroke';
 
   const setMode = async (value: boolean) => {
     on = value;
@@ -63,7 +64,7 @@ export function registerDrawMode(): vscode.Disposable {
       if (!on && !editor) return void vscode.window.showWarningMessage('Drawper: open a source file to draw on.');
       if (!on && editor) {
         await ensureCanvas(editor);
-        void vscode.window.showInformationMessage('Drawper: drawing is on. Hold the mouse button and drag over your code to draw.');
+        void vscode.window.showInformationMessage('Drawper: drawing is on. Hold the mouse button and drag over your code. Click Drawing in the status bar to finish.');
       }
       await setMode(!on);
     }),

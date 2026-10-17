@@ -44,34 +44,30 @@
       },
       {
         "command": "drawper.addToCanvas",
-        "title": "Drawper: Add Selected Code to Canvas",
+        "title": "Drawper: Add Selection to Canvas",
         "icon": "media/brand/add.svg"
       },
       {
         "command": "drawper.annotateCode",
-        "title": "Drawper: Open Canvas for This Code",
-        "icon": "media/brand/logo.svg"
+        "title": "Drawper: Open Code Canvas",
+        "icon": "media/brand/canvas.svg"
       },
       {
         "command": "drawper.toggleOverlay",
-        "title": "Drawper: Toggle Drawings Over Editor"
+        "title": "Drawper: Show or Hide Drawings on Editor"
       },
       {
         "command": "drawper.toggleDrawMode",
-        "title": "Drawper: Draw Strokes That Stay With the Code (drag cursor)"
+        "title": "Drawper: Draw on Code",
+        "icon": "media/brand/draw.svg"
       },
       {
         "command": "drawper.undoStroke",
-        "title": "Drawper: Undo Last Stroke"
+        "title": "Drawper: Undo Stroke"
       },
       {
         "command": "drawper.clearDrawings",
-        "title": "Drawper: Clear Drawings on This File"
-      },
-      {
-        "command": "drawper.screenDraw",
-        "title": "Drawper: Draw on the Editor",
-        "icon": "media/brand/draw.svg"
+        "title": "Drawper: Clear Drawings"
       }
     ],
     "customEditors": [
@@ -108,18 +104,18 @@
           "group": "navigation@0"
         },
         {
-          "command": "drawper.screenDraw",
+          "command": "drawper.toggleDrawMode",
           "when": "resourceScheme == file && resourceExtname != .dpr",
           "group": "navigation@1"
         },
         {
-          "command": "drawper.addToCanvas",
-          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
+          "command": "drawper.annotateCode",
+          "when": "resourceScheme == file && resourceExtname != .dpr",
           "group": "navigation@2"
         },
         {
-          "command": "drawper.annotateCode",
-          "when": "resourceScheme == file && resourceExtname != .dpr",
+          "command": "drawper.addToCanvas",
+          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
           "group": "navigation@3"
         }
       ],
@@ -136,7 +132,7 @@
         {
           "command": "drawper.convertSchema",
           "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
-          "group": "navigation@10"
+          "group": "navigation@20"
         }
       ],
       "editor/context": [
@@ -151,14 +147,19 @@
           "group": "navigation@10"
         },
         {
-          "command": "drawper.addToCanvas",
-          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
-          "group": "navigation@11"
+          "command": "drawper.toggleDrawMode",
+          "when": "resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@20"
         },
         {
-          "command": "drawper.screenDraw",
+          "command": "drawper.annotateCode",
           "when": "resourceScheme == file && resourceExtname != .dpr",
-          "group": "navigation@12"
+          "group": "navigation@21"
+        },
+        {
+          "command": "drawper.addToCanvas",
+          "when": "editorHasSelection && resourceScheme == file && resourceExtname != .dpr",
+          "group": "navigation@22"
         }
       ]
     },
