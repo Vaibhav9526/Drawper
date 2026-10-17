@@ -45,12 +45,16 @@
       {
         "command": "drawper.addToCanvas",
         "title": "Drawper: Add Selected Code to Canvas",
-        "icon": "$(add)"
+        "icon": "media/brand/add.svg"
       },
       {
         "command": "drawper.annotateCode",
         "title": "Drawper: Draw on This Code",
-        "icon": "$(pencil)"
+        "icon": "media/brand/draw.svg"
+      },
+      {
+        "command": "drawper.toggleOverlay",
+        "title": "Drawper: Toggle Drawings Over Editor"
       }
     ],
     "customEditors": [
@@ -135,6 +139,16 @@
           "group": "navigation@12"
         }
       ]
+    },
+    "configuration": {
+      "title": "Drawper",
+      "properties": {
+        "drawper.overlay.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show drawings made on a code canvas over the matching text editor (display only)."
+        }
+      }
     }
   },
   "scripts": {
