@@ -55,19 +55,6 @@
       {
         "command": "drawper.toggleOverlay",
         "title": "Drawper: Show or Hide Drawings on Editor"
-      },
-      {
-        "command": "drawper.toggleDrawMode",
-        "title": "Drawper: Draw on Code",
-        "icon": "media/brand/draw.svg"
-      },
-      {
-        "command": "drawper.undoStroke",
-        "title": "Drawper: Undo Stroke"
-      },
-      {
-        "command": "drawper.clearDrawings",
-        "title": "Drawper: Clear Drawings"
       }
     ],
     "customEditors": [
@@ -102,11 +89,6 @@
         {
           "command": "drawper.open",
           "group": "navigation@0"
-        },
-        {
-          "command": "drawper.toggleDrawMode",
-          "when": "resourceScheme == file && resourceExtname != .dpr",
-          "group": "navigation@1"
         },
         {
           "command": "drawper.annotateCode",
@@ -145,11 +127,6 @@
           "command": "drawper.convertSchema",
           "when": "resourceExtname =~ /\\.(prisma|sql|ts|tsx|mts|js|jsx|mjs|cjs|py)$/",
           "group": "navigation@10"
-        },
-        {
-          "command": "drawper.toggleDrawMode",
-          "when": "resourceScheme == file && resourceExtname != .dpr",
-          "group": "navigation@20"
         },
         {
           "command": "drawper.annotateCode",
