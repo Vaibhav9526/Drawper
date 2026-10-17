@@ -79,8 +79,8 @@
           "Drawper"
         ],
         "icon": {
-          "light": "media/brand/logo.svg",
-          "dark": "media/brand/logo.svg"
+          "light": "media/brand/favicon.svg",
+          "dark": "media/brand/favicon-dark.svg"
         }
       }
     ],

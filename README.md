@@ -54,6 +54,7 @@
 - **Draw on your code.** **Canvas** (editor title bar, status bar or above a selection) opens the whole file as a live, locked card on `<file>.annotations.dpr` beside the editor, with pens, arrows and notes on top. Those drawings are also shown over the real editor (display only; relies on an unofficial VS Code trick, tune `drawper.overlay.charWidthRatio` if it drifts sideways, or turn it off with `drawper.overlay.enabled`). **Add to canvas** drops just the selected code on a canvas as a card. Paste screenshots with `Ctrl+V`.
 - **Icons and SVG.** Built-in icon library, SVG import, and paste SVG markup straight onto the canvas.
 - **Resizable side panel.** Drag its left edge; the width is remembered.
+- **Panel themes.** Pick Blue, Yellow, Mint, Coral or Violet from the Theme button in the panel header; the choice is remembered.
 - **Plain JSON files.** Drawings are saved as `.dpr` and diff cleanly.
 
 ### Schema sources the viewer understands
@@ -180,11 +181,12 @@ Drawper/
 
 | | |
 | --- | --- |
-| Yellow | `#FFD900` |
+| Blue | `#005FFF` |
 | Ink | `#2E2936` |
+| Yellow | `#FFD900` |
 | Coral | `#EC5451` |
 | Mint | `#87DAC7` |
-| Amber | `#EAAA2A` |
+| Violet | `#8B5CF6` |
 
 ## License
 

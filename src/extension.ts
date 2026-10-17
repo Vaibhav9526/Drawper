@@ -79,6 +79,7 @@ class DrawperEditor implements vscode.CustomTextEditorProvider {
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     panel.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'dist')] };
+    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'brand', 'logo.svg');
     let initial: ReturnType<typeof parseDocument> | undefined;
     try { initial = parseDocument(document.getText()); } catch { /* surfaced through the 'ready' push */ }
     panel.webview.html = webviewHtml(panel.webview, this.ctx, 'editor', '', initial);
@@ -248,6 +249,7 @@ async function viewSchema(ctx: vscode.ExtensionContext, target?: vscode.Uri, foc
   const panel = vscode.window.createWebviewPanel('drawper.schema', `Schema: ${path.basename(uri.fsPath)}`, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {
     enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(ctx.extensionUri, 'media', 'dist')],
   });
+  panel.iconPath = vscode.Uri.joinPath(ctx.extensionUri, 'media', 'brand', 'logo.svg');
   viewers.set(key, { panel, send: (f) => send(panel, f) });
   panel.webview.html = webviewHtml(panel.webview, ctx, 'viewer', path.basename(uri.fsPath));
 
