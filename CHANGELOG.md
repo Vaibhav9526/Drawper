@@ -2,6 +2,12 @@
 
 All notable changes to Drawper are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+- New calligraphic pencil "D" logo and favicon.
+- Panel polish: header gradient, focus rings, hover and press states, and theme variables in place of hard-coded colours.
+- README rewrite with banner, overview and workflow art.
+
 ## [0.1.0]
 
 ### Added

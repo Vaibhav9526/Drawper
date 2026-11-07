@@ -1,21 +1,50 @@
 <p align="center">
-  <img src="media/brand/logo.png" alt="Drawper logo" width="128" />
-</p>
-
-<h1 align="center">Drawper</h1>
-
-<p align="center">
-  A fast whiteboard canvas inside VS Code for sketching system architecture and database schemas,<br/>
-  then turning them into real code.
+  <img src="docs/images/banner.png" alt="Drawper: sketch your system, ship the schema" width="100%" />
 </p>
 
 <p align="center">
   <img alt="VS Code" src="https://img.shields.io/badge/VS%20Code-%5E1.85-2E2936?logo=visualstudiocode&logoColor=FFD900" />
   <img alt="File type" src="https://img.shields.io/badge/file-.dpr-FFD900?labelColor=2E2936" />
   <img alt="Status" src="https://img.shields.io/badge/status-0.1.0-EC5451?labelColor=2E2936" />
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-87DAC7?labelColor=2E2936" />
+</p>
+
+<p align="center">
+  <a href="#what-is-drawper">What it is</a> ·
+  <a href="#demo">Demo</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#usage">Usage</a>
 </p>
 
 ---
+
+## What is Drawper?
+
+Drawper is a VS Code extension that puts a fast whiteboard inside your editor, built for the two diagrams developers draw most: **system architecture** and **database schemas**. You sketch boxes and arrows, and Drawper turns what you drew into real, runnable code.
+
+Most diagram tools stop at a picture, and the picture goes stale the moment the code changes. Drawper keeps the diagram and the code connected:
+
+- **Draw it, then generate it.** Tables and columns become SQL, Prisma, Drizzle or TypeScript. Components become a `docker-compose.yml` with a Node scaffold per service.
+- **Read what you already have.** Open any existing schema file and Drawper draws the ER diagram for you, following foreign keys across files.
+- **Think on top of your code.** Draw arrows, pens and notes directly over a live copy of your source file.
+- **Stay in your repo.** Drawings are plain `.dpr` JSON files that diff cleanly and live next to the code they describe.
+
+<p align="center">
+  <img src="docs/images/workflow.png" alt="Sketch on the canvas, connect with arrows, generate code" width="800" />
+</p>
+
+<p align="center"><sub>Sketch, connect, generate.</sub></p>
+
+### Who it is for
+
+| If you are... | Drawper helps you... |
+| --- | --- |
+| Designing a new service | Whiteboard the architecture, then scaffold it with one click |
+| Modelling a database | Draw tables and relations, then export SQL, Prisma or Drizzle |
+| Joining an existing codebase | See the whole schema as an ER diagram, across files |
+| Migrating ORMs | Convert Prisma, TypeORM, Django, SQLAlchemy or Mongoose models to another format |
+| Explaining code to a teammate | Annotate the real file with arrows and notes |
 
 ## Demo
 
@@ -173,7 +202,7 @@ Drawper/
 │   └── webview/           # React UI: canvas, side panel, shapes, icons
 ├── media/
 │   └── brand/             # logo.svg (source) and logo.png (marketplace icon)
-├── docs/images/           # README screenshots
+├── docs/images/           # README screenshots, banner and workflow art
 └── scripts/               # webview build and parser tests
 ```
 
